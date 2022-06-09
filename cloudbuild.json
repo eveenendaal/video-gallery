@@ -37,7 +37,7 @@
       "args": [
         "build",
         "-t",
-        "europe-west4-docker.pkg.dev/veenendaal-base/docker/video-gallery",
+        "europe-west4-docker.pkg.dev/veenendaal-base/docker/videogallery",
         "."
       ]
     },
@@ -46,7 +46,7 @@
       "id": "Upload Docker Image",
       "args": [
         "push",
-        "europe-west4-docker.pkg.dev/veenendaal-base/docker/video-gallery"
+        "europe-west4-docker.pkg.dev/veenendaal-base/docker/videogallery"
       ]
     },
     {
@@ -56,7 +56,7 @@
         "run",
         "deploy",
         "videogallery",
-        "--image=europe-west4-docker.pkg.dev/veenendaal-base/docker/video-gallery:latest",
+        "--image=europe-west4-docker.pkg.dev/veenendaal-base/docker/videogallery:latest",
         "--region=europe-west4",
         "--project=veenendaal-base"
       ]

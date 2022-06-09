@@ -34,6 +34,21 @@ const galleries: Galleries = {
     },
     "my-tapes": {
         title: "My Tapes"
+    },
+    "betamax-tapes": {
+        title: "Betamax Tapes"
+    },
+    "betamax-original-tapes": {
+        title: "Betamax Tapes (Originals)"
+    },
+    "rohrberg-tapes": {
+        title: "Rohrberg Tapes"
+    },
+    "mcdaniel-tapes": {
+        title: "McDaniel Tapes"
+    },
+    "moms-tapes": {
+        title: "Mom's Tapes"
     }
 }
 

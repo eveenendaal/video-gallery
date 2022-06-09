@@ -55,7 +55,7 @@
       "args": [
         "run",
         "deploy",
-        "video-gallery",
+        "videogallery",
         "--image=europe-west4-docker.pkg.dev/veenendaal-base/docker/video-gallery:latest",
         "--region=europe-west4",
         "--project=veenendaal-base"

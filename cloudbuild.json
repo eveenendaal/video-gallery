@@ -1,0 +1,35 @@
+{
+  "steps": [
+    {
+      "name": "gcr.io/cloud-builders/yarn",
+      "id": "Yarn Install",
+      "args": [
+        "install"
+      ]
+    },
+    {
+      "name": "gcr.io/cloud-builders/yarn",
+      "id": "Yarn Compile Typescript",
+      "args": [
+        "run",
+        "compile:ts"
+      ]
+    },
+    {
+      "name": "gcr.io/cloud-builders/yarn",
+      "id": "Yarn Compile SCSS",
+      "args": [
+        "run",
+        "compile:scss"
+      ]
+    },
+    {
+      "name": "gcr.io/cloud-builders/yarn",
+      "id": "Yarn Cleanup",
+      "args": [
+        "install",
+        "--production"
+      ]
+    }
+  ]
+}

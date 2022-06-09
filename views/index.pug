@@ -1,0 +1,14 @@
+doctype html
+html
+    head
+        meta(name="viewport", content="width=device-width,initial-scale=1.0")
+        title #{gallery}
+        link(rel='stylesheet' href='/css/styles.css')
+    body
+        div.container
+            div.block
+                h1.title Videos
+                div.video
+                    each file in videos
+                        div.video
+                            div.caption #{file.name}

@@ -1,0 +1,39 @@
+@import "../node_modules/bulma/bulma";
+
+html {
+  padding: 10px;
+
+  body {
+    .container {
+      .images {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+
+        .image {
+          img {
+            max-width: 400px;
+            max-height: 400px;
+            width: auto;
+            height: auto;
+            margin-bottom: 10px;
+            margin-right: 10px;
+
+            @media(max-width: 500px) {
+              max-width: 100%;
+              margin-right: 0;
+            }
+          }
+
+          .caption {
+            text-align: center;
+            font-size: 10px;
+            padding-bottom: 10px;
+          }
+        }
+      }
+    }
+  }
+}
+

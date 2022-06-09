@@ -1,0 +1,14 @@
+.gcloudignore
+
+# below:
+.git
+.gitignore
+.ngapimock
+
+# Test
+cypress
+mocks
+
+# Source Code
+src
+public

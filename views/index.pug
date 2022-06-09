@@ -6,10 +6,14 @@ html
         link(rel='stylesheet' href='/css/styles.css')
     body
         div.container
-            h1.title.is-1 #{gallery}
-            div.video
+            div.hero.is-dark
+                div.hero-body
+                    h1.title.is-1 #{gallery}
+            div.videos
                 each file in videos
-                    div.content
-                        h2.subtitle.is-5 #{file.name}
-                        div.has-text-centered
-                            a.button.is-link(href=file.url) Play
+                    div.content.video
+                        div.columns.is-vcentered
+                            div.column.is-narrow.has-text-centered-mobile
+                                a.button.is-link(href=file.url) Play
+                            div.column
+                                div.subtitle.is-5 #{file.name}

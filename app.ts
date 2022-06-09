@@ -17,6 +17,26 @@ app.get('/robots.txt', async (req, res) => {
     res.status(200).send("User-agent: *\n" + "Disallow: /");
 });
 
+interface Gallery {
+    get title(): string
+}
+
+interface Galleries {
+    [key: string]: Gallery;
+}
+
+const galleries: Galleries = {
+    "cindys-tapes": {
+        title: "Cindy's Tapes"
+    },
+    "dads-tapes": {
+        title: "Dad's Tapes"
+    },
+    "my-tapes": {
+        title: "My Tapes"
+    }
+}
+
 app.get('/:gallery', async (req: Request, res: Response) => {
     let gallery = req.params.gallery;
 
@@ -39,7 +59,7 @@ app.get('/:gallery', async (req: Request, res: Response) => {
     }
 
     res.render('index', {
-        gallery: gallery,
+        gallery: galleries[gallery] ? galleries[gallery].title : gallery,
         videos: videos
     });
 });

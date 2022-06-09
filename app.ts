@@ -33,7 +33,7 @@ app.get('/:gallery', async (req: Request, res: Response) => {
         pathParts.splice(0, 1)
 
         videos.push({
-            name: pathParts.join("/"),
+            name: pathParts.join("/").replace(/\.\w+$/g, ""),
             url: urls ? urls[0] : null
         });
     }

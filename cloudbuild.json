@@ -30,6 +30,36 @@
         "install",
         "--production"
       ]
+    },
+    {
+      "name": "gcr.io/cloud-builders/docker",
+      "id": "Build Docker Image",
+      "args": [
+        "build",
+        "-t",
+        "europe-west4-docker.pkg.dev/veenendaal-base/docker/video-gallery",
+        "."
+      ]
+    },
+    {
+      "name": "gcr.io/cloud-builders/docker",
+      "id": "Upload Docker Image",
+      "args": [
+        "push",
+        "europe-west4-docker.pkg.dev/veenendaal-base/docker/video-gallery"
+      ]
+    },
+    {
+      "name": "gcr.io/cloud-builders/gcloud",
+      "id": "Deploy Docker Image",
+      "args": [
+        "run",
+        "deploy",
+        "video-gallery",
+        "--image=europe-west4-docker.pkg.dev/veenendaal-base/docker/video-gallery:latest",
+        "--region=europe-west4",
+        "--project=veenendaal-base"
+      ]
     }
   ]
 }

@@ -6,9 +6,10 @@ html
         link(rel='stylesheet' href='/css/styles.css')
     body
         div.container
-            div.block
-                h1.title Videos
-                div.video
-                    each file in videos
-                        div.video
-                            div.caption #{file.name}
+            h1.title.is-1 #{gallery}
+            div.video
+                each file in videos
+                    div.content
+                        h2.subtitle.is-5 #{file.name}
+                        div.has-text-centered
+                            a.button.is-link(href=file.url) Play

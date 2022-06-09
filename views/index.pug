@@ -5,10 +5,11 @@ html
         title #{gallery}
         link(rel='stylesheet' href='/css/styles.css')
     body
+        div.hero.is-dark.is-small
+            div.hero-head
+                div.container.py-5.has-text-centered-mobile
+                    h1.title.is-2 #{gallery}
         div.container
-            div.hero.is-dark
-                div.hero-body
-                    h1.title.is-1 #{gallery}
             div.videos
                 each file in videos
                     div.content.video

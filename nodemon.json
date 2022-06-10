@@ -1,0 +1,9 @@
+{
+  "verbose": true,
+  "ignore": [
+    "out/*"
+  ],
+  "execMap": {
+    "scss": "node-sass --recursive scss --output out/css"
+  }
+}

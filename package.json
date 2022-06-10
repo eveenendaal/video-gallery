@@ -8,7 +8,7 @@
     "compile:ts": "tsc",
     "compile:scss": "node-sass --recursive scss --output out/css",
     "start": "node out/app.js",
-    "compile-start": "ts-node app.ts"
+    "compile-start": "nodemon app.ts"
   },
   "dependencies": {
     "@google-cloud/storage": "^5.20.5",

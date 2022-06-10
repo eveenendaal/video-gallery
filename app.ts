@@ -52,6 +52,18 @@ const galleries: Galleries = {
     }
 }
 
+app.get('/_index', async (req: Request, res: Response) => {
+    const index = Object.keys(galleries)
+        .map(stub => ({
+            stub: `/${stub}`,
+            name: galleries[stub].title
+        }))
+
+    res.render('index', {
+        galleries: index
+    });
+});
+
 app.get('/:gallery', async (req: Request, res: Response) => {
     let gallery = req.params.gallery;
 
@@ -73,7 +85,7 @@ app.get('/:gallery', async (req: Request, res: Response) => {
         });
     }
 
-    res.render('index', {
+    res.render('gallery', {
         gallery: galleries[gallery] ? galleries[gallery].title : gallery,
         videos: videos
     });

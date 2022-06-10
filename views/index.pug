@@ -8,13 +8,9 @@ html
         div.header.hero.is-dark.is-small
             div.hero-head
                 div.container.has-text-centered-mobile.block
-                    h1.title.is-2 #{gallery}
+                    h1.title.is-2 Galleries
         div.container
             div.videos
-                each file in videos
-                    div.block.video
-                        div.columns.is-vcentered
-                            div.column.is-narrow.has-text-centered-mobile
-                                a.button.is-link(href=file.url) Play
-                            div.column
-                                div.subtitle.is-5 #{file.name}
+                each gallery in galleries
+                    div.block
+                        a.button.is-link(href=gallery.stub) #{gallery.name}

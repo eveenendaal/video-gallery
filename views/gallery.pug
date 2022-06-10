@@ -1,0 +1,20 @@
+doctype html
+html
+    head
+        meta(name="viewport", content="width=device-width,initial-scale=1.0")
+        title #{gallery}
+        link(rel='stylesheet' href='/css/styles.css')
+    body
+        div.header.hero.is-dark.is-small
+            div.hero-head
+                div.container.has-text-centered-mobile.block
+                    h1.title.is-2 #{gallery}
+        div.container
+            div.videos
+                each file in videos
+                    div.block.video
+                        div.columns.is-vcentered
+                            div.column.is-narrow.has-text-centered-mobile
+                                a.button.is-link(href=file.url) Play
+                            div.column
+                                div.subtitle.is-5 #{file.name}

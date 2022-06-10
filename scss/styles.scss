@@ -21,8 +21,10 @@ html {
             padding-left: 20px;
           }
 
-          &:not(:last-child) {
-            border-bottom: 1px solid #cccccc;
+          &.has-divider {
+            &:not(:last-child) {
+              border-bottom: 1px solid #cccccc;
+            }
           }
 
           .caption {

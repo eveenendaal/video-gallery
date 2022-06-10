@@ -73,7 +73,7 @@ app.get('/:gallery', async (req: Request, res: Response) => {
     for (const file of response) {
         let urls: [string] | void = await file.getSignedUrl({
             action: 'read',
-            expires: Date.now() + 1000 * 60 * 60, // one hour
+            expires: Date.now() + 1000 * 60 * 60 * 24, // one day
         }).catch(error => console.error(error));
 
         const pathParts = file.name.split("/")

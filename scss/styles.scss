@@ -13,13 +13,15 @@ html {
       .videos {
         padding-top: 20px;
 
-        .video {
-          padding-bottom: 20px;
-
+        .title, .video {
           @media (max-width: $tablet) {
             padding-right: 20px;
             padding-left: 20px;
           }
+        }
+
+        .video {
+          padding-bottom: 20px;
 
           &.has-divider {
             &:not(:last-child) {

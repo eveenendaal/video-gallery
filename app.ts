@@ -28,7 +28,7 @@ enum Category {
     VIDEO = "Videos",
     HOME_VIDEO = "Home Videos",
     MOVIE = "Movies",
-    UNKNOWN= "Unknown"
+    UNKNOWN = "Unknown"
 }
 
 interface Galleries {
@@ -116,14 +116,29 @@ app.get("/feed", async (req: Request, res: Response) => {
 })
 
 app.get('/_index', async (req: Request, res: Response) => {
-    const index = Object.keys(galleries)
-        .map(stub => ({
-            stub: `/${stub}`,
-            name: galleries[stub].title
-        }))
+
+    const galleryList = new Map()
+    Object.values(Category)
+        .filter((category, id) => category !== Category.UNKNOWN)
+        .forEach((category, id) => {
+            galleryList.set(category.toString(), Object.keys(galleries)
+                .filter(stub => galleries[stub].category === category)
+                .map(stub => ({
+                    stub: `/${stub}`,
+                    category: galleries[stub].category,
+                    name: galleries[stub].title
+                })))
+        })
+
+    let jsonObject = {};
+    galleryList
+        .forEach((value, key) => {
+            // @ts-ignore
+            jsonObject[key.toString()] = value
+        })
 
     res.render('index', {
-        galleries: index
+        galleries: jsonObject
     });
 });
 

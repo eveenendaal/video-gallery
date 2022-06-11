@@ -11,6 +11,9 @@ html
                     h1.title.is-2 Galleries
         div.container
             div.videos
-                each gallery in galleries
-                    div.video
-                        a.button.is-link(href=gallery.stub) #{gallery.name}
+                each id, category in galleries
+                    div.category
+                        h2.title.is3 #{category}
+                        each gallery in galleries[category]
+                            div.video
+                                a.button.is-link(href=gallery.stub) #{gallery.name}

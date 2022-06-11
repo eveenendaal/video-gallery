@@ -18,11 +18,17 @@ app.get('/robots.txt', async (req, res) => {
 });
 
 interface Gallery {
-    get title(): string
+    title: string
+    videos?: [Video]
 }
 
 interface Galleries {
     [key: string]: Gallery;
+}
+
+interface Video {
+    name: string,
+    url: string
 }
 
 const galleries: Galleries = {
@@ -49,8 +55,41 @@ const galleries: Galleries = {
     },
     "moms-tapes": {
         title: "Mom's Tapes"
+    },
+    "21-day-fix": {
+        title: "21 Day Fix"
+    },
+    "kids-movies": {
+        title: "Kid's Movies"
+    },
+    "movies": {
+        title: "Movies"
     }
 }
+
+app.get('/', async (req: Request, res: Response) => {
+    res.status(200).send();
+});
+
+app.get("/feed", async (req: Request, res: Response) => {
+
+    const [files] = (await bucket.getFiles());
+
+    const videos: Galleries = {};
+
+    for (const file of files) {
+        const fileParts = file.name.split("/", 1)
+        const prefix: string = fileParts[0]
+        if (!videos[prefix]) {
+            videos[prefix] = {
+                title: galleries[prefix] ? galleries[prefix].title : prefix,
+                videos: await getVideosByPrefix(prefix)
+            }
+        }
+    }
+
+    res.status(200).send(videos)
+})
 
 app.get('/_index', async (req: Request, res: Response) => {
     const index = Object.keys(galleries)
@@ -64,13 +103,11 @@ app.get('/_index', async (req: Request, res: Response) => {
     });
 });
 
-app.get('/:gallery', async (req: Request, res: Response) => {
-    let gallery = req.params.gallery;
-
-    const [response] = (await bucket.getFiles({directory: gallery, delimiter: "/"}));
+async function getVideosByPrefix(prefix: string): Promise<[Video]> {
+    const [files] = (await bucket.getFiles({prefix: `${prefix}/`, delimiter: "/"}));
 
     const videos = [];
-    for (const file of response) {
+    for (const file of files) {
         let urls: [string] | void = await file.getSignedUrl({
             action: 'read',
             expires: Date.now() + 1000 * 60 * 60 * 24, // one day
@@ -85,14 +122,16 @@ app.get('/:gallery', async (req: Request, res: Response) => {
         });
     }
 
+    return <[Video]>videos
+}
+
+app.get('/:gallery', async (req: Request, res: Response) => {
+    let gallery = req.params.gallery;
+
     res.render('gallery', {
         gallery: galleries[gallery] ? galleries[gallery].title : gallery,
-        videos: videos
+        videos: await getVideosByPrefix(gallery)
     });
-});
-
-app.get('/', async (req: Request, res: Response) => {
-    res.status(200).send();
 });
 
 app.set('views', './views');

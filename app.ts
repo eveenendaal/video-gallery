@@ -19,8 +19,16 @@ app.get('/robots.txt', async (req, res) => {
 
 interface Gallery {
     title: string
+    category: Category
     stub?: string
     videos?: [Video]
+}
+
+enum Category {
+    VIDEO = "Videos",
+    HOME_VIDEO = "Home Videos",
+    MOVIE = "Movies",
+    UNKNOWN= "Unknown"
 }
 
 interface Galleries {
@@ -34,37 +42,48 @@ interface Video {
 
 const galleries: Galleries = {
     "cindys-tapes": {
-        title: "Cindy's Tapes"
+        title: "Cindy's Tapes",
+        category: Category.HOME_VIDEO
     },
     "dads-tapes": {
-        title: "Dad's Tapes"
+        title: "Dad's Tapes",
+        category: Category.HOME_VIDEO
     },
     "my-tapes": {
-        title: "My Tapes"
+        title: "My Tapes",
+        category: Category.HOME_VIDEO
     },
     "betamax-tapes": {
-        title: "Betamax Tapes"
+        title: "Betamax Tapes",
+        category: Category.HOME_VIDEO
     },
     "betamax-original-tapes": {
-        title: "Betamax Tapes (Originals)"
+        title: "Betamax Tapes (Originals)",
+        category: Category.HOME_VIDEO
     },
     "rohrberg-tapes": {
-        title: "Rohrberg Tapes"
+        title: "Rohrberg Tapes",
+        category: Category.HOME_VIDEO
     },
     "mcdaniel-tapes": {
-        title: "McDaniel Tapes"
+        title: "McDaniel Tapes",
+        category: Category.HOME_VIDEO
     },
     "moms-tapes": {
-        title: "Mom's Tapes"
+        title: "Mom's Tapes",
+        category: Category.HOME_VIDEO
     },
     "21-day-fix": {
-        title: "21 Day Fix"
+        title: "21 Day Fix",
+        category: Category.VIDEO
     },
     "kids-movies": {
-        title: "Kid's Movies"
+        title: "Kid's Movies",
+        category: Category.MOVIE
     },
     "movies": {
-        title: "Movies"
+        title: "Movies",
+        category: Category.MOVIE
     }
 }
 
@@ -87,6 +106,7 @@ app.get("/feed", async (req: Request, res: Response) => {
             galleryList.push({
                 title: galleries[prefix] ? galleries[prefix].title : prefix,
                 stub: prefix,
+                category: galleries[prefix] ? galleries[prefix].category : Category.UNKNOWN,
                 videos: await getVideosByPrefix(prefix)
             })
         }
@@ -134,6 +154,7 @@ app.get('/:gallery', async (req: Request, res: Response) => {
 
     res.render('gallery', {
         gallery: galleries[gallery] ? galleries[gallery].title : gallery,
+        category: galleries[gallery] ? galleries[gallery].category : Category.UNKNOWN,
         videos: await getVideosByPrefix(gallery)
     });
 });

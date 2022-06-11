@@ -19,6 +19,7 @@ app.get('/robots.txt', async (req, res) => {
 
 interface Gallery {
     title: string
+    stub?: string
     videos?: [Video]
 }
 
@@ -75,20 +76,23 @@ app.get("/feed", async (req: Request, res: Response) => {
 
     const [files] = (await bucket.getFiles());
 
-    const videos: Galleries = {};
+    const galleryList: Gallery[] = [];
+    const prefixes: string[] = []
 
     for (const file of files) {
         const fileParts = file.name.split("/", 1)
         const prefix: string = fileParts[0]
-        if (!videos[prefix]) {
-            videos[prefix] = {
+        if (prefix != null && prefixes.indexOf(prefix) === -1) {
+            prefixes.push(prefix)
+            galleryList.push({
                 title: galleries[prefix] ? galleries[prefix].title : prefix,
+                stub: prefix,
                 videos: await getVideosByPrefix(prefix)
-            }
+            })
         }
     }
 
-    res.status(200).send(videos)
+    res.status(200).send(galleryList)
 })
 
 app.get('/_index', async (req: Request, res: Response) => {

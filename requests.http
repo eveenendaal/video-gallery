@@ -1,2 +1,5 @@
 ### Get Feed
 GET http://localhost:8080/feed
+
+### Get Feed : Live
+GET https://video.veenendaal.co/feed

@@ -37,7 +37,8 @@ interface Galleries {
 
 interface Video {
     name: string,
-    url: string
+    url: string,
+    thumbnail?: string
 }
 
 const galleries: Galleries = {
@@ -144,6 +145,7 @@ app.get('/_index', async (req: Request, res: Response) => {
 
 async function getVideosByPrefix(prefix: string): Promise<[Video]> {
     const [files] = (await bucket.getFiles({prefix: `${prefix}/`, delimiter: "/"}));
+    const thumbnails: Map<String, String> = await getThumbnails(prefix)
 
     const videos = [];
     for (const file of files) {
@@ -154,14 +156,41 @@ async function getVideosByPrefix(prefix: string): Promise<[Video]> {
 
         const pathParts = file.name.split("/")
         pathParts.splice(0, 1)
+        const fileName: string = pathParts.join("/").replace(/\.\w+$/g, "")
 
-        videos.push({
-            name: pathParts.join("/").replace(/\.\w+$/g, ""),
-            url: urls ? urls[0] : null
-        });
+        if (urls) {
+            videos.push({
+                name: fileName,
+                url: urls[0],
+                thumbnail: thumbnails.get(fileName) ?? null
+            });
+        }
     }
 
     return <[Video]>videos
+}
+
+async function getThumbnails(prefix: string): Promise<Map<String, String>> {
+    const [files] = (await bucket.getFiles({prefix: `${prefix}/thumbnails/`, delimiter: "/"}));
+    const thumbnails: Map<string, string> = new Map();
+
+    for (const file of files) {
+        let urls: [string] | void = await file.getSignedUrl({
+            action: 'read',
+            expires: Date.now() + 1000 * 60 * 60 * 24, // one day
+        }).catch(error => console.error(error));
+
+        const pathParts = file.name.split("/")
+        pathParts.splice(0, 2)
+
+        const fileName = pathParts.join("/").replace(/\.\w+$/g, "")
+
+        if (urls) {
+            thumbnails.set(fileName, urls[0])
+        }
+    }
+
+    return thumbnails
 }
 
 app.get('/:gallery', async (req: Request, res: Response) => {

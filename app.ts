@@ -18,7 +18,7 @@ app.get('/robots.txt', async (req, res) => {
 });
 
 interface Gallery {
-    title: string
+    name: string
     category: Category
     stub?: string
     videos?: [Video]
@@ -42,47 +42,47 @@ interface Video {
 
 const galleries: Galleries = {
     "cindys-tapes": {
-        title: "Cindy's Tapes",
+        name: "Cindy's Tapes",
         category: Category.HOME_VIDEO
     },
     "dads-tapes": {
-        title: "Dad's Tapes",
+        name: "Dad's Tapes",
         category: Category.HOME_VIDEO
     },
     "my-tapes": {
-        title: "My Tapes",
+        name: "My Tapes",
         category: Category.HOME_VIDEO
     },
     "betamax-tapes": {
-        title: "Betamax Tapes",
+        name: "Betamax Tapes",
         category: Category.HOME_VIDEO
     },
     "betamax-original-tapes": {
-        title: "Betamax Tapes (Originals)",
+        name: "Betamax Tapes (Originals)",
         category: Category.HOME_VIDEO
     },
     "rohrberg-tapes": {
-        title: "Rohrberg Tapes",
+        name: "Rohrberg Tapes",
         category: Category.HOME_VIDEO
     },
     "mcdaniel-tapes": {
-        title: "McDaniel Tapes",
+        name: "McDaniel Tapes",
         category: Category.HOME_VIDEO
     },
     "moms-tapes": {
-        title: "Mom's Tapes",
+        name: "Mom's Tapes",
         category: Category.HOME_VIDEO
     },
     "21-day-fix": {
-        title: "21 Day Fix",
+        name: "21 Day Fix",
         category: Category.VIDEO
     },
     "kids-movies": {
-        title: "Kid's Movies",
+        name: "Kid's Movies",
         category: Category.MOVIE
     },
     "movies": {
-        title: "Movies",
+        name: "Movies",
         category: Category.MOVIE
     }
 }
@@ -104,7 +104,7 @@ app.get("/feed", async (req: Request, res: Response) => {
         if (prefix != null && prefixes.indexOf(prefix) === -1) {
             prefixes.push(prefix)
             galleryList.push({
-                title: galleries[prefix] ? galleries[prefix].title : prefix,
+                name: galleries[prefix] ? galleries[prefix].name : prefix,
                 stub: prefix,
                 category: galleries[prefix] ? galleries[prefix].category : Category.UNKNOWN,
                 videos: await getVideosByPrefix(prefix)
@@ -119,14 +119,14 @@ app.get('/_index', async (req: Request, res: Response) => {
 
     const galleryList = new Map()
     Object.values(Category)
-        .filter((category, id) => category !== Category.UNKNOWN)
-        .forEach((category, id) => {
+        .filter((category, _) => category !== Category.UNKNOWN)
+        .forEach((category, _) => {
             galleryList.set(category.toString(), Object.keys(galleries)
                 .filter(stub => galleries[stub].category === category)
                 .map(stub => ({
                     stub: `/${stub}`,
                     category: galleries[stub].category,
-                    name: galleries[stub].title
+                    name: galleries[stub].name
                 })))
         })
 
@@ -168,7 +168,7 @@ app.get('/:gallery', async (req: Request, res: Response) => {
     let gallery = req.params.gallery;
 
     res.render('gallery', {
-        gallery: galleries[gallery] ? galleries[gallery].title : gallery,
+        gallery: galleries[gallery] ? galleries[gallery].name : gallery,
         category: galleries[gallery] ? galleries[gallery].category : Category.UNKNOWN,
         videos: await getVideosByPrefix(gallery)
     });

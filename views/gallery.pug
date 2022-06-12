@@ -12,10 +12,15 @@ html
                     h2.subtitle.is-3 #{category}
         div.container
             div.videos
-                each file in videos
-                    div.block.video.has-divider
-                        div.columns.is-vcentered
-                            div.column.is-narrow.has-text-centered-mobile
-                                a.button.is-link(href=file.url) Play
-                            div.column
-                                div.subtitle.is-5 #{file.name}
+                div.columns.is-multiline.is-flex-direction-row
+                    each file in videos
+                        div.column.is-4
+                            div.video.has-text-centered
+                                div.block
+                                    if file.thumbnail
+                                        a(href=file.url)
+                                            img(src=file.thumbnail).image.m-auto
+                                div.block
+                                    a.button.is-medium.is-link(href=file.url) Play
+                                div.caption
+                                    div.subtitle.is-5 #{file.name}

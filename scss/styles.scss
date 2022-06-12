@@ -12,21 +12,23 @@ html {
     .container {
       .videos {
         padding-top: 20px;
-
-        .title, .video {
-          @media (max-width: $tablet) {
-            padding-right: 20px;
-            padding-left: 20px;
-          }
+        @media (max-width: $tablet) {
+          padding-right: 20px;
+          padding-left: 20px;
         }
 
         .video {
-          padding-bottom: 20px;
+          border: 1px solid #cccccc;
+          border-radius: 10px;
+          padding-top: 20px;
+          padding-right: 20px;
+          padding-left: 20px;
+          padding-bottom: 10px;
 
-          &.has-divider {
-            &:not(:last-child) {
-              border-bottom: 1px solid #cccccc;
-            }
+          img {
+            min-height: 300px;
+            max-height: 300px;
+            margin: auto;
           }
 
           .caption {

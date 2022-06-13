@@ -20,7 +20,7 @@ html
                                     if file.thumbnail
                                         a(href=file.url)
                                             img(src=file.thumbnail).image.m-auto
-                                div.block
-                                    a.button.is-medium.is-link(href=file.url) Play
+                                    else
+                                        a.button.is-medium.is-link(href=file.url) Play
                                 div.caption
                                     div.subtitle.is-5 #{file.name}

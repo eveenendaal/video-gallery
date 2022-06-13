@@ -38,6 +38,13 @@ html {
             min-height: 300px;
             max-height: 300px;
             margin: auto;
+            border-radius: 10px;
+            box-shadow: 2px 2px 5px lightgray;
+            transition: all 200ms ease-in-out;
+
+            &:hover, &:active {
+              scale: 105%;
+            }
           }
 
           .caption {

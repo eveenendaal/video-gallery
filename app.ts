@@ -22,6 +22,7 @@ interface Gallery {
     category: Category
     stub?: string
     videos?: [Video]
+    password?: string
 }
 
 enum Category {
@@ -41,50 +42,62 @@ interface Video {
     thumbnail?: string
 }
 
+// Passwords
 const galleries: Galleries = {
     "cindys-tapes": {
         name: "Cindy's Tapes",
-        category: Category.HOME_VIDEO
+        category: Category.HOME_VIDEO,
+        password: "Dh7h"
     },
     "dads-tapes": {
         name: "Dad's Tapes",
-        category: Category.HOME_VIDEO
+        category: Category.HOME_VIDEO,
+        password: "1ABF"
     },
     "my-tapes": {
         name: "My Tapes",
-        category: Category.HOME_VIDEO
+        category: Category.HOME_VIDEO,
+        password: "drNs"
     },
     "betamax-tapes": {
         name: "Betamax Tapes",
-        category: Category.HOME_VIDEO
+        category: Category.HOME_VIDEO,
+        password: "r81q"
     },
     "betamax-original-tapes": {
         name: "Betamax Tapes (Originals)",
-        category: Category.HOME_VIDEO
+        category: Category.HOME_VIDEO,
+        password: "0l9I"
     },
     "rohrberg-tapes": {
         name: "Rohrberg Tapes",
-        category: Category.HOME_VIDEO
+        category: Category.HOME_VIDEO,
+        password: "cepj"
     },
     "mcdaniel-tapes": {
         name: "McDaniel Tapes",
-        category: Category.HOME_VIDEO
+        category: Category.HOME_VIDEO,
+        password: "idkk"
     },
     "moms-tapes": {
         name: "Mom's Tapes",
-        category: Category.HOME_VIDEO
+        category: Category.HOME_VIDEO,
+        password: "3b8N"
     },
     "21-day-fix": {
         name: "21 Day Fix",
-        category: Category.VIDEO
+        category: Category.VIDEO,
+        password: "Ihu1"
     },
     "kids-movies": {
         name: "Kid's Movies",
-        category: Category.MOVIE
+        category: Category.MOVIE,
+        password: "Y8DM"
     },
     "movies": {
         name: "Movies",
-        category: Category.MOVIE
+        category: Category.MOVIE,
+        password: "SY7V"
     }
 }
 
@@ -116,7 +129,7 @@ app.get("/feed", async (req: Request, res: Response) => {
     res.status(200).send(galleryList)
 })
 
-app.get('/_index', async (req: Request, res: Response) => {
+app.get('/TWs0/_index', async (req: Request, res: Response) => {
 
     const galleryList = new Map()
     Object.values(Category)
@@ -125,7 +138,7 @@ app.get('/_index', async (req: Request, res: Response) => {
             galleryList.set(category.toString(), Object.keys(galleries)
                 .filter(stub => galleries[stub].category === category)
                 .map(stub => ({
-                    stub: `/${stub}`,
+                    stub: `/${galleries[stub].password}/${stub}`,
                     category: galleries[stub].category,
                     name: galleries[stub].name
                 })))
@@ -193,14 +206,19 @@ async function getThumbnails(prefix: string): Promise<Map<String, String>> {
     return thumbnails
 }
 
-app.get('/:gallery', async (req: Request, res: Response) => {
-    let gallery = req.params.gallery;
+app.get('/:password/:gallery', async (req: Request, res: Response) => {
+    let stub = req.params.gallery;
+    let gallery = galleries[stub];
 
-    res.render('gallery', {
-        gallery: galleries[gallery] ? galleries[gallery].name : gallery,
-        category: galleries[gallery] ? galleries[gallery].category : Category.UNKNOWN,
-        videos: await getVideosByPrefix(gallery)
-    });
+    if (gallery.password == req.params.password) {
+        res.render('gallery', {
+            gallery: gallery ? gallery.name : stub,
+            category: gallery ? gallery.category : Category.UNKNOWN,
+            videos: await getVideosByPrefix(stub)
+        });
+    } else {
+        res.status(404).send()
+    }
 });
 
 app.set('views', './views');

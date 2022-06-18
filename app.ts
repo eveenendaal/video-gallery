@@ -116,11 +116,12 @@ app.get("/feed", async (req: Request, res: Response) => {
         const fileParts = file.name.split("/", 1)
         const prefix: string = fileParts[0]
         if (prefix != null && prefixes.indexOf(prefix) === -1) {
+            let gallery = galleries[prefix];
             prefixes.push(prefix)
             galleryList.push({
-                name: galleries[prefix] ? galleries[prefix].name : prefix,
+                name: gallery ? gallery.name : prefix,
                 stub: prefix,
-                category: galleries[prefix] ? galleries[prefix].category : Category.UNKNOWN,
+                category: gallery ? gallery.category : Category.UNKNOWN,
                 videos: await getVideosByPrefix(prefix)
             })
         }

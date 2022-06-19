@@ -1,5 +1,6 @@
 import express, {Request, Response} from "express";
 import {Storage} from "@google-cloud/storage";
+import * as crypto from "crypto";
 
 const app = express();
 
@@ -22,7 +23,6 @@ interface Gallery {
     category: Category
     stub?: string
     videos?: [Video]
-    password?: string
 }
 
 enum Category {
@@ -46,58 +46,47 @@ interface Video {
 const galleries: Galleries = {
     "cindys-tapes": {
         name: "Cindy's Tapes",
-        category: Category.HOME_VIDEO,
-        password: "Dh7h"
+        category: Category.HOME_VIDEO
     },
     "dads-tapes": {
         name: "Dad's Tapes",
-        category: Category.HOME_VIDEO,
-        password: "1ABF"
+        category: Category.HOME_VIDEO
     },
     "my-tapes": {
         name: "My Tapes",
-        category: Category.HOME_VIDEO,
-        password: "drNs"
+        category: Category.HOME_VIDEO
     },
     "betamax-tapes": {
         name: "Betamax Tapes",
-        category: Category.HOME_VIDEO,
-        password: "r81q"
+        category: Category.HOME_VIDEO
     },
     "betamax-original-tapes": {
         name: "Betamax Tapes (Originals)",
-        category: Category.HOME_VIDEO,
-        password: "0l9I"
+        category: Category.HOME_VIDEO
     },
     "rohrberg-tapes": {
         name: "Rohrberg Tapes",
-        category: Category.HOME_VIDEO,
-        password: "cepj"
+        category: Category.HOME_VIDEO
     },
     "mcdaniel-tapes": {
         name: "McDaniel Tapes",
-        category: Category.HOME_VIDEO,
-        password: "idkk"
+        category: Category.HOME_VIDEO
     },
     "moms-tapes": {
         name: "Mom's Tapes",
-        category: Category.HOME_VIDEO,
-        password: "3b8N"
+        category: Category.HOME_VIDEO
     },
     "21-day-fix": {
         name: "21 Day Fix",
-        category: Category.VIDEO,
-        password: "Ihu1"
+        category: Category.VIDEO
     },
     "kids-movies": {
         name: "Kid's Movies",
-        category: Category.MOVIE,
-        password: "Y8DM"
+        category: Category.MOVIE
     },
     "movies": {
         name: "Movies",
-        category: Category.MOVIE,
-        password: "SY7V"
+        category: Category.MOVIE
     }
 }
 
@@ -130,6 +119,11 @@ app.get("/feed", async (req: Request, res: Response) => {
     res.status(200).send(galleryList)
 })
 
+function generateSecret(stub: string) {
+    const md5Hasher = crypto.createHmac("md5", "QuxFzI9lcmwfcg")
+    return md5Hasher.update(stub).digest("base64url").slice(0,4)
+}
+
 app.get('/TWs0/_index', async (req: Request, res: Response) => {
 
     const galleryList = new Map()
@@ -139,7 +133,7 @@ app.get('/TWs0/_index', async (req: Request, res: Response) => {
             galleryList.set(category.toString(), Object.keys(galleries)
                 .filter(stub => galleries[stub].category === category)
                 .map(stub => ({
-                    stub: `/${galleries[stub].password}/${stub}`,
+                    stub: `/${generateSecret(stub)}/${stub}`,
                     category: galleries[stub].category,
                     name: galleries[stub].name
                 })))
@@ -211,7 +205,7 @@ app.get('/:password/:gallery', async (req: Request, res: Response) => {
     let stub = req.params.gallery;
     let gallery = galleries[stub];
 
-    if (gallery.password == req.params.password) {
+    if (generateSecret(stub) == req.params.password) {
         res.render('gallery', {
             gallery: gallery ? gallery.name : stub,
             category: gallery ? gallery.category : Category.UNKNOWN,

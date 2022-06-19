@@ -124,7 +124,7 @@ function generateSecret(stub: string) {
     return md5Hasher.update(stub).digest("base64url").slice(0,4)
 }
 
-app.get('/TWs0/_index', async (req: Request, res: Response) => {
+app.get('/TWs0/index', async (req: Request, res: Response) => {
 
     const galleryList = new Map()
     Object.values(Category)

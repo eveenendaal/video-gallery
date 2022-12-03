@@ -50,7 +50,8 @@
       ]
     },
     {
-      "name": "gcr.io/cloud-builders/gcloud",
+      "name": "gcr.io/google.com/cloudsdktool/google-cloud-cli",
+      "entrypoint": "gcloud",
       "id": "Deploy Docker Image",
       "args": [
         "run",

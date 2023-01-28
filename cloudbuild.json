@@ -61,6 +61,14 @@
         "--region=europe-west4",
         "--project=veenendaal-base"
       ]
+    },
+    {
+      "name": "gcr.io/google.com/cloudsdktool/google-cloud-cli",
+      "id": "Cleanup Deployment",
+      "entrypoint": "bash",
+      "args": [
+        "cleanup.sh"
+      ]
     }
   ]
 }

@@ -65,7 +65,6 @@
     {
       "name": "bitnami/trivy:latest",
       "id": "Run Trivy",
-      "allowFailure": true,
       "args": [
         "--cache-dir",
         "/tmp/.cache ",

@@ -70,6 +70,7 @@
         "--cache-dir",
         "/tmp/.cache ",
         "image",
+        "--ignore-unfixed",
         "europe-west4-docker.pkg.dev/veenendaal-base/docker/videogallery:latest"
       ]
     },

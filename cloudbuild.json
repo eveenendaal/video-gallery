@@ -63,6 +63,14 @@
       ]
     },
     {
+      "name": "bitnami/trivy:latest",
+      "id": "Run Trivy",
+      "args": [
+        "image",
+        "europe-west4-docker.pkg.dev/veenendaal-base/docker/videogallery:latest"
+      ]
+    },
+    {
       "name": "gcr.io/google.com/cloudsdktool/google-cloud-cli",
       "id": "Cleanup Deployment",
       "entrypoint": "bash",

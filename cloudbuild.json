@@ -67,10 +67,10 @@
       "id": "Run Trivy",
       "allowFailure": true,
       "args": [
-        "image",
-        "europe-west4-docker.pkg.dev/veenendaal-base/docker/videogallery:latest",
         "--cache-dir",
-        "/tmp/.cache image"
+        "/tmp/.cache ",
+        "image",
+        "europe-west4-docker.pkg.dev/veenendaal-base/docker/videogallery:latest"
       ]
     },
     {

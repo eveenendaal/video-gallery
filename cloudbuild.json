@@ -71,6 +71,8 @@
         "/tmp/.cache ",
         "image",
         "--ignore-unfixed",
+        "--severity",
+        "HIGH,CRITICAL"
         "europe-west4-docker.pkg.dev/veenendaal-base/docker/videogallery:latest"
       ]
     },

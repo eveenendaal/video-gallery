@@ -73,7 +73,7 @@
         "--format",
         "json",
         "--output",
-        "/workspace/videogallery_${SHORT_SHA}.json",
+        "videogallery_${SHORT_SHA}.json",
         "europe-west4-docker.pkg.dev/veenendaal-base/docker/videogallery:latest"
       ]
     },
@@ -103,7 +103,7 @@
     "objects": {
       "location": "gs://veenendaal-security-scans/",
       "paths": [
-        "/workspace/videogallery_${SHORT_SHA}.json"
+        "videogallery_${SHORT_SHA}.json"
       ]
     }
   }

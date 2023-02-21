@@ -76,31 +76,6 @@
       ]
     },
     {
-      "name": "bitnami/trivy:latest",
-      "id": "Run Trivy Json",
-      "args": [
-        "--cache-dir",
-        "/tmp/.cache ",
-        "image",
-        "--ignore-unfixed",
-        "--format",
-        "json",
-        "--output",
-        "scan.json",
-        "europe-west4-docker.pkg.dev/veenendaal-base/docker/videogallery:latest"
-      ]
-    },
-    {
-      "name": "gcr.io/google.com/cloudsdktool/google-cloud-cli",
-      "entrypoint": "gsutil",
-      "id": "Update Trivy Scan",
-      "args": [
-        "cp",
-        "scan.json",
-        "gs://veenendaal-security-scans/videogallery_${COMMIT_SHA}.json"
-      ]
-    },
-    {
       "name": "gcr.io/google.com/cloudsdktool/google-cloud-cli",
       "id": "Cleanup Deployment",
       "entrypoint": "bash",

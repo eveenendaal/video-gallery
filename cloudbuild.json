@@ -73,7 +73,7 @@
         "--format",
         "json",
         "--output",
-        "/tmp/scan.json",
+        "./scan.json",
         "europe-west4-docker.pkg.dev/veenendaal-base/docker/videogallery:latest"
       ]
     },
@@ -83,7 +83,7 @@
       "id": "Update Trivy Scan",
       "args": [
         "cp",
-        "/tmp/scan.json",
+        "./scan.json",
         "gs://veenendaal-security-scans/videogallery_${COMMIT_SHA}.json"
       ]
     },

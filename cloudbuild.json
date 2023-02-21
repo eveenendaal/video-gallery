@@ -50,19 +50,6 @@
       ]
     },
     {
-      "name": "gcr.io/google.com/cloudsdktool/google-cloud-cli",
-      "entrypoint": "gcloud",
-      "id": "Deploy Docker Image",
-      "args": [
-        "run",
-        "deploy",
-        "videogallery",
-        "--image=europe-west4-docker.pkg.dev/veenendaal-base/docker/videogallery:latest",
-        "--region=europe-west4",
-        "--project=veenendaal-base"
-      ]
-    },
-    {
       "name": "bitnami/trivy:latest",
       "id": "Run Trivy",
       "args": [
@@ -98,6 +85,19 @@
         "cp",
         "/tmp/scan.json",
         "gs://veenendaal-security-scans/videogallery_${COMMIT_SHA}.json"
+      ]
+    },
+    {
+      "name": "gcr.io/google.com/cloudsdktool/google-cloud-cli",
+      "entrypoint": "gcloud",
+      "id": "Deploy Docker Image",
+      "args": [
+        "run",
+        "deploy",
+        "videogallery",
+        "--image=europe-west4-docker.pkg.dev/veenendaal-base/docker/videogallery:latest",
+        "--region=europe-west4",
+        "--project=veenendaal-base"
       ]
     },
     {

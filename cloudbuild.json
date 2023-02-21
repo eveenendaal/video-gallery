@@ -73,18 +73,8 @@
         "--format",
         "json",
         "--output",
-        "./scan.json",
+        "videogallery_${SHORT_SHA}.json",
         "europe-west4-docker.pkg.dev/veenendaal-base/docker/videogallery:latest"
-      ]
-    },
-    {
-      "name": "gcr.io/google.com/cloudsdktool/google-cloud-cli",
-      "entrypoint": "gsutil",
-      "id": "Update Trivy Scan",
-      "args": [
-        "cp",
-        "./scan.json",
-        "gs://veenendaal-security-scans/videogallery_${COMMIT_SHA}.json"
       ]
     },
     {
@@ -108,5 +98,13 @@
         "cleanup.sh"
       ]
     }
-  ]
+  ],
+  "artifacts": {
+    "objects": {
+      "location": "gs://veenendaal-security-scans/",
+      "paths": [
+        "videogallery_${SHORT_SHA}.json"
+      ]
+    }
+  }
 }

@@ -63,15 +63,17 @@
       ]
     },
     {
-      "name": "bitnami/trivy:latest",
+      "name": "aquasec/trivy:latest",
       "id": "Run Trivy",
       "args": [
         "--cache-dir",
         "/tmp/.cache ",
         "image",
         "--ignore-unfixed",
-        "--severity",
-        "HIGH,CRITICAL",
+        "--format",
+        "json",
+        "--output",
+        "scan-$COMMIT_SHA.json",
         "europe-west4-docker.pkg.dev/veenendaal-base/docker/videogallery:latest"
       ]
     },
@@ -83,5 +85,13 @@
         "cleanup.sh"
       ]
     }
-  ]
+  ],
+  "artifacts": {
+    "objects": {
+      "location": "gs://scans-veenendaal/video-gallery",
+      "paths": [
+        "scan-$COMMIT_SHA.json"
+      ]
+    }
+  }
 }

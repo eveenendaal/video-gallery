@@ -50,6 +50,18 @@
       ]
     },
     {
+      "name": "aquasec/trivy:latest",
+      "id": "Run Trivy",
+      "args": [
+        "image",
+        "--format",
+        "json",
+        "--output",
+        "scan-$COMMIT_SHA.json",
+        "europe-west4-docker.pkg.dev/veenendaal-base/docker/videogallery:latest"
+      ]
+    },
+    {
       "name": "gcr.io/google.com/cloudsdktool/google-cloud-cli",
       "entrypoint": "gcloud",
       "id": "Deploy Docker Image",
@@ -60,18 +72,6 @@
         "--image=europe-west4-docker.pkg.dev/veenendaal-base/docker/videogallery:latest",
         "--region=europe-west4",
         "--project=veenendaal-base"
-      ]
-    },
-    {
-      "name": "aquasec/trivy:latest",
-      "id": "Run Trivy",
-      "args": [
-        "image",
-        "--format",
-        "json",
-        "--output",
-        "scan-$COMMIT_SHA.json",
-        "europe-west4-docker.pkg.dev/veenendaal-base/docker/videogallery:latest"
       ]
     },
     {

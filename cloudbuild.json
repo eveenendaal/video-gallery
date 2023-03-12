@@ -66,10 +66,7 @@
       "name": "aquasec/trivy:latest",
       "id": "Run Trivy",
       "args": [
-        "--cache-dir",
-        "/tmp/.cache ",
         "image",
-        "--ignore-unfixed",
         "--format",
         "json",
         "--output",

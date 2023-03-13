@@ -57,7 +57,7 @@
         "--format",
         "json",
         "--output",
-        "scan-$SHORT_SHA-$BUILD_ID.json",,
+        "scan-$SHORT_SHA-$BUILD_ID.json",
         "europe-west4-docker.pkg.dev/veenendaal-base/docker/videogallery:latest"
       ]
     },

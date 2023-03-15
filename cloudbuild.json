@@ -85,7 +85,7 @@
   ],
   "artifacts": {
     "objects": {
-      "location": "gs://scans-veenendaal/video-gallery",
+      "location": "gs://veenendaal-scans/video-gallery",
       "paths": [
         "scan-$SHORT_SHA-$BUILD_ID.json"
       ]

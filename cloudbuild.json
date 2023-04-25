@@ -1,14 +1,16 @@
 {
   "steps": [
     {
-      "name": "gcr.io/cloud-builders/yarn",
+      "name": "node:18",
+      "entrypoint": "yarn",
       "id": "Yarn Install",
       "args": [
         "install"
       ]
     },
     {
-      "name": "gcr.io/cloud-builders/yarn",
+      "name": "node:18",
+      "entrypoint": "yarn",
       "id": "Yarn Compile Typescript",
       "args": [
         "run",
@@ -16,7 +18,8 @@
       ]
     },
     {
-      "name": "gcr.io/cloud-builders/yarn",
+      "name": "node:18",
+      "entrypoint": "yarn",
       "id": "Yarn Compile SCSS",
       "args": [
         "run",
@@ -24,7 +27,8 @@
       ]
     },
     {
-      "name": "gcr.io/cloud-builders/yarn",
+      "name": "node:18",
+      "entrypoint": "yarn",
       "id": "Yarn Cleanup",
       "args": [
         "install",

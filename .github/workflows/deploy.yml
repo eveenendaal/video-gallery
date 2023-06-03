@@ -72,6 +72,17 @@ jobs:
         shell: bash
 
     steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: "${{ secrets.GCP_CREDENTIALS }}"
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Setup Docker
+        run: "gcloud auth configure-docker $REPO --quiet"
+
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
@@ -81,6 +92,9 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
+
+  #      - name: Deploy to Cloud Run
+#        run: "gcloud run deploy website --image=$IMAGE --region=$REGION --project=$PROJECT_ID"
 
 
   deploy:

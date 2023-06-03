@@ -108,7 +108,7 @@ jobs:
           severity: 'CRITICAL,HIGH'
           format: template
           template: "@trivy/github-markdown.tpl"
-          output: ${{ github.step_summary }}
+          output: "scan.txt"
 
       - name: Write to step summary
         run: cat scan.txt >> $GITHUB_STEP_SUMMARY

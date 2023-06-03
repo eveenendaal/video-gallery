@@ -87,17 +87,16 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: '${{ env.IMAGE }}'
-          format: 'sarif'
+          format: 'json'
           exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
-          output: 'trivy-results.sarif'
+          output: "scan-{{ github.sha }}.json"
 
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v2
-        with:
-          sarif_file: 'trivy-results.sarif'
+      - name: Upload Trivy vulnerability scanner results
+        run: "gsutil cp scan-{{ github.sha }}.json gs://veenendaal-scans/veenendaal-base/video-gallery/"
+
 
   deploy:
     runs-on: ubuntu-latest

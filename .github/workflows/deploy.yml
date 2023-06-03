@@ -99,6 +99,18 @@ jobs:
           severity: 'CRITICAL,HIGH'
           output: "scan-${{ github.sha }}.json"
 
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.IMAGE_STAGE }}'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+          output: "scan.txt"
+
+      - name: Write to step summary
+        run: cat scan.txt >> $GITHUB_STEP_SUMMARY
+
       - name: Upload Trivy vulnerability scanner results
         run: "gsutil cp scan-${{ github.sha }}.json gs://veenendaal-scans/$PROJECT_ID/$NAME/"
 

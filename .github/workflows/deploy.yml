@@ -87,16 +87,17 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: '${{ env.IMAGE }}'
-          format: 'json'
+          format: 'sarif'
           exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
-          output: "scan-${{ env.SHORT_SHA }}.json"
+          output: 'trivy-results.sarif'
 
-  #      - name: Deploy to Cloud Run
-#        run: "gcloud run deploy website --image=$IMAGE --region=$REGION --project=$PROJECT_ID"
-
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
 
   deploy:
     runs-on: ubuntu-latest

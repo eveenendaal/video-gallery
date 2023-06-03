@@ -119,7 +119,7 @@ jobs:
         uses: google-github-actions/setup-gcloud@v1
 
       - name: Deploy to Cloud Run
-        run: "gcloud run deploy website --image=$IMAGE --region=$REGION --project=$PROJECT_ID"
+        run: "gcloud run deploy videogallery --image=$IMAGE --region=$REGION --project=$PROJECT_ID"
 
       - name: Cleanup
         run: bash cleanup.sh

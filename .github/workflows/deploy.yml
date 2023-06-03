@@ -106,7 +106,9 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
-          output: "scan.txt"
+          format: template
+          template: "@trivy/github-markdown.tpl"
+          output: ${{ github.step_summary }}
 
       - name: Write to step summary
         run: cat scan.txt >> $GITHUB_STEP_SUMMARY

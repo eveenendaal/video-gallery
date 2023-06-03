@@ -17,6 +17,7 @@ env:
   REPO: "europe-west4-docker.pkg.dev"
   IMAGE: "europe-west4-docker.pkg.dev/veenendaal-base/docker/videogallery:latest"
   PROJECT_ID: "veenendaal-base"
+  NAME: "video-gallery"
 
 jobs:
   build:
@@ -98,7 +99,7 @@ jobs:
           output: "scan-${{ github.sha }}.json"
 
       - name: Upload Trivy vulnerability scanner results
-        run: "gsutil cp scan-${{ github.sha }}.json gs://veenendaal-scans/veenendaal-base/video-gallery/"
+        run: "gsutil cp scan-${{ github.sha }}.json gs://veenendaal-scans/$PROJECT_ID/$NAME/"
 
 
   deploy:

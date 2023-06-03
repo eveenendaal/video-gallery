@@ -7,5 +7,7 @@ version: 2
 updates:
   - package-ecosystem: "npm"
     directory: "/"
+    assignees:
+      - "eveenendaal"
     schedule:
       interval: "weekly"

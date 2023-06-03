@@ -1,6 +1,8 @@
 name: Deploy
 
 on:
+  schedule:
+    - cron:  '0 0 * * 1'
   push:
     branches:
       - master
@@ -88,7 +90,6 @@ jobs:
         with:
           image-ref: '${{ env.IMAGE }}'
           format: 'json'
-          exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'

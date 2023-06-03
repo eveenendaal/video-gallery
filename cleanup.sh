@@ -7,6 +7,6 @@ for LINE in $(gcloud run revisions list --region="$REGION" --filter="status.cond
   gcloud run revisions delete --region=$REGION --quiet --async "$LINE" || true
 done
 
-for LINE in $(gcloud artifacts docker images list "$REGION-docker.pkg.dev/$PROJECT/docker/videogallery" --include-tags --filter="tags = ''" --format="value[separator='@']( package,version)"); do
+for LINE in $(gcloud artifacts docker images list "$REGION-docker.pkg.dev/$PROJECT/docker/videogallery" --include-tags --filter="NOT tags ~ 'latest' AND createTime<-P1W" --format="value[separator='@']( package,version)"); do
   gcloud artifacts docker images delete --quiet --async "$LINE" || true
 done

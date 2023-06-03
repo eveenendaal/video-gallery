@@ -2,7 +2,7 @@ name: Deploy
 
 on:
   schedule:
-    - cron:  '0 0 * * 1'
+    - cron: '0 0 * * 1'
   push:
     branches:
       - master
@@ -93,15 +93,16 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: '${{ env.IMAGE_STAGE }}'
+          format: 'html'
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
-          output: "scan.txt"
+          output: "scan.html"
 
       - uses: actions/upload-artifact@v3
         with:
           name: trivy-scan
-          path: scan.txt
+          path: scan.html
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master

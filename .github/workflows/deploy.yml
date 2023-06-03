@@ -107,7 +107,7 @@ jobs:
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
           format: template
-          template: "@trivy/github-markdown.tpl"
+          template: "@contrib/github.tpl"
           output: "scan.txt"
 
       - name: Write to step summary

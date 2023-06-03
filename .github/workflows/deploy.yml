@@ -92,10 +92,10 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
-          output: "scan-{{ github.sha }}.json"
+          output: "scan-${{ github.sha }}.json"
 
       - name: Upload Trivy vulnerability scanner results
-        run: "gsutil cp scan-{{ github.sha }}.json gs://veenendaal-scans/veenendaal-base/video-gallery/"
+        run: "gsutil cp scan-${{ github.sha }}.json gs://veenendaal-scans/veenendaal-base/video-gallery/"
 
 
   deploy:

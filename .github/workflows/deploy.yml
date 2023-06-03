@@ -15,7 +15,8 @@ on:
 env:
   REGION: "europe-west4"
   REPO: "europe-west4-docker.pkg.dev"
-  IMAGE: "europe-west4-docker.pkg.dev/veenendaal-base/docker/videogallery:latest"
+  IMAGE_STAGE: "europe-west4-docker.pkg.dev/veenendaal-base/docker/videogallery:${{ github.sha }}"
+  IMAGE_FINAL: "europe-west4-docker.pkg.dev/veenendaal-base/docker/videogallery:latest"
   PROJECT_ID: "veenendaal-base"
   NAME: "video-gallery"
 
@@ -63,7 +64,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: "${{ env.IMAGE }}"
+          tags: "${{ env.IMAGE_STAGE }}"
 
 
   secruity-scan:
@@ -91,7 +92,7 @@ jobs:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: '${{ env.IMAGE }}'
+          image-ref: '${{ env.IMAGE_STAGE }}'
           format: 'json'
           ignore-unfixed: true
           vuln-type: 'os,library'
@@ -122,8 +123,11 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v1
 
+      - name: Tag image for release
+        run: "gcloud container images add-tag $IMAGE_STAGE $IMAGE_FINAL"
+
       - name: Deploy to Cloud Run
-        run: "gcloud run deploy videogallery --image=$IMAGE --region=$REGION --project=$PROJECT_ID"
+        run: "gcloud run deploy videogallery --image=$IMAGE_FINAL --region=$REGION --project=$PROJECT_ID"
 
       - name: Cleanup
         run: bash cleanup.sh

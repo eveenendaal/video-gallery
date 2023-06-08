@@ -94,6 +94,37 @@ app.get('/', async (req: Request, res: Response) => {
     res.status(200).send();
 });
 
+const sampleVideo = "https://archive.org/download/big-bunny-sample-video/SampleVideo.mp4"
+const sampleThumbnail = "https://eveenendaal.github.io/video-feed-player/example.jpg"
+
+app.get("/demo", async (req: Request, res: Response) => {
+    res.status(200).send([
+        {
+            "name": "Video Group 1",
+            "stub": "video-group-1",
+            "category": "Category 1",
+            "videos": [{
+                "name": "Demo Video 1",
+                "url": sampleVideo,
+                "thumbnail": sampleThumbnail
+            }
+            ]
+        },
+        {
+            "name": "Video Group 2",
+            "stub": "video-group-2",
+            "category": "Category 2",
+            "videos": [
+                {
+                    "name": "Demo Video 2",
+                    "url": sampleVideo,
+                    "thumbnail": null
+                }
+            ]
+        }
+    ])
+})
+
 app.get("/feed", async (req: Request, res: Response) => {
 
     const [files] = (await bucket.getFiles());
@@ -121,7 +152,7 @@ app.get("/feed", async (req: Request, res: Response) => {
 
 function generateSecret(stub: string) {
     const md5Hasher = crypto.createHmac("md5", "QuxFzI9lcmwfcg")
-    return md5Hasher.update(stub).digest("base64url").slice(0,4)
+    return md5Hasher.update(stub).digest("base64url").slice(0, 4)
 }
 
 app.get('/TWs0/index', async (req: Request, res: Response) => {

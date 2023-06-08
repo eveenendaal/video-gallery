@@ -121,7 +121,7 @@ app.get("/demo2", async (req: Request, res: Response) => {
         const videos = [];
         for (let i = 1; i <= 10; i++) {
             videos.push({
-                "name": "Demo Video " + i,
+                "name": name + " Video " + i,
                 "url": sampleVideo
             })
         }

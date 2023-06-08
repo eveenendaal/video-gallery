@@ -98,31 +98,49 @@ const sampleVideo = "https://archive.org/download/big-bunny-sample-video/SampleV
 const sampleThumbnail = "https://eveenendaal.github.io/video-feed-player/example.jpg"
 
 app.get("/demo", async (req: Request, res: Response) => {
-    res.status(200).send([
-        {
-            "name": "Video Group 1",
-            "stub": "video-group-1",
-            "category": "Category 1",
+    const response = [];
+    for (let i = 1; i <= 2; i++) {
+        const thumbnail = (i % 2) == 0 ? null : sampleThumbnail
+        response.push({
+            "name": "Video Group " + i,
+            "stub": "video-group-" + i,
+            "category": "Category " + i,
             "videos": [{
-                "name": "Demo Video 1",
+                "name": "Demo Video " + i,
                 "url": sampleVideo,
-                "thumbnail": sampleThumbnail
-            }
-            ]
-        },
-        {
-            "name": "Video Group 2",
-            "stub": "video-group-2",
-            "category": "Category 2",
-            "videos": [
-                {
-                    "name": "Demo Video 2",
-                    "url": sampleVideo,
-                    "thumbnail": null
-                }
-            ]
+                "thumbnail": thumbnail
+            }]
+        })
+    }
+    res.status(200).send(response)
+})
+
+
+app.get("/demo2", async (req: Request, res: Response) => {
+    function generateVideos(name: String, category: String): Object {
+        const videos = [];
+        for (let i = 1; i <= 10; i++) {
+            videos.push({
+                "name": "Demo Video " + i,
+                "url": sampleVideo
+            })
         }
-    ])
+
+        return {
+            "name": name,
+            "stub": name.toLowerCase().replace(" ", "-"),
+            "category": category,
+            "videos": videos
+        }
+    }
+
+    const response = []
+    response.push(generateVideos("Alice", "Home Videos"))
+    response.push(generateVideos("Bob", "Home Videos"))
+    response.push(generateVideos("Charlie", "Home Videos"))
+    response.push(generateVideos("Movies", "Movies"))
+    response.push(generateVideos("Video", "Video"))
+    res.status(200).send(response)
 })
 
 app.get("/feed", async (req: Request, res: Response) => {

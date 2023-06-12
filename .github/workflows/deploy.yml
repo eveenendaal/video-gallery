@@ -100,7 +100,7 @@ jobs:
           output: "scan.json"
 
       - name: Upload Trivy vulnerability scanner results
-        run: "gsutil cp scan.json gs://veenendaal-scans/$PROJECT_ID/$NAME/scan-${{ github.sha }}.json"
+        run: "gsutil cp scan.json gs://veenendaal-scans/$PROJECT_ID/$NAME/scan-${{ github.sha }}-${{ github.run_number }}.json"
 
 
   deploy:

@@ -17,3 +17,9 @@ updates:
       - "eveenendaal"
     schedule:
       interval: "weekly"
+  - package-ecosystem: "docker"
+    directory: "/"
+    assignees:
+      - "eveenendaal"
+    schedule:
+      interval: "weekly"

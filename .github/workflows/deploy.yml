@@ -95,3 +95,36 @@ jobs:
 
       - name: Cleanup
         run: bash cleanup.sh
+
+
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: [ deploy ]
+    if: ${{ github.event_name == 'schedule' }}
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: "${{ secrets.GCP_CREDENTIALS }}"
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Setup Docker
+        run: "gcloud auth configure-docker $REPO --quiet"
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          format: 'github'
+          output: 'dependency-results.sbom.json'
+          image-ref: '${{ env.IMAGE_FINAL }}'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+          github-pat: ${{ secrets.GITHUB_TOKEN }}

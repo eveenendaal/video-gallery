@@ -103,7 +103,6 @@ app.get("/demo", async (req: Request, res: Response) => {
         const thumbnail = (i % 2) == 0 ? null : sampleThumbnail
         response.push({
             "name": "Video Group " + i,
-            "stub": "video-group-" + i,
             "category": "Category " + i,
             "videos": [{
                 "name": "Demo Video " + i,

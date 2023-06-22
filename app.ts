@@ -187,12 +187,11 @@ app.get('/TWs0/index', async (req: Request, res: Response): Promise<void> => {
         })))
     })
 
-
-  let displayGalleries: Galleries = {};
+  const displayGalleries: Galleries = {}
   galleryList
-      .forEach((value, key) => {
-        displayGalleries[key.toString()] = value
-      })
+    .forEach((value, key) => {
+      displayGalleries[key.toString()] = value
+    })
 
   res.render('index', {
     galleries: displayGalleries

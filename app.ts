@@ -187,14 +187,8 @@ app.get('/TWs0/index', async (req: Request, res: Response): Promise<void> => {
         })))
     })
 
-  const jsonObject = {}
-  galleryList
-    .forEach((value, key): void => {
-      jsonObject[key.toString()] = value
-    })
-
   res.render('index', {
-    galleries: jsonObject
+    galleries: galleryList
   })
 })
 
@@ -204,10 +198,10 @@ async function getVideosByPrefix (prefix: string): Promise<[Video]> {
 
   const videos = []
   for (const file of files) {
-    const urls: [string] | void = await file.getSignedUrl({
+    const urls: [string] | [] = await file.getSignedUrl({
       action: 'read',
       expires: Date.now() + 1000 * 60 * 60 * 24 // one day
-    }).catch(error => { console.error(error) })
+    }).catch(error => { console.error(error) }) ?? []
 
     const pathParts = file.name.split('/')
     pathParts.splice(0, 1)
@@ -230,17 +224,17 @@ async function getThumbnails (prefix: string): Promise<Map<string, string>> {
   const thumbnails = new Map<string, string>()
 
   for (const file of files) {
-    const urls: [string] | void = await file.getSignedUrl({
+    const urls: [string] | [] = await file.getSignedUrl({
       action: 'read',
       expires: Date.now() + 1000 * 60 * 60 * 24 // one day
-    }).catch(error => { console.error(error) })
+    }).catch(error => { console.error(error) }) ?? []
 
     const pathParts = file.name.split('/')
     pathParts.splice(0, 2)
 
     const fileName = pathParts.join('/').replace(/\.\w+$/g, '')
 
-    if (urls != null) {
+    if (urls[0] != null) {
       thumbnails.set(fileName, urls[0])
     }
   }

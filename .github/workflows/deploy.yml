@@ -21,8 +21,35 @@ env:
   NAME: "video-gallery"
 
 jobs:
+  run-linters:
+    name: run-linters
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v2
+
+      - name: Set Node.js 18.x
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18.x
+
+      - name: Install Node.js dependencies
+        run: yarn install
+
+      - name: Run ESLint
+        run: yarn run eslint:github-action
+
+      - uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: 'ESLint fixes'
+          commit_options: '--no-verify'
+
   build:
     runs-on: ubuntu-latest
+    needs: run-linters
     environment: default
     defaults:
       run:

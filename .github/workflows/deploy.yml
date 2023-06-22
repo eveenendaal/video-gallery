@@ -120,9 +120,6 @@ jobs:
       - name: Deploy to Cloud Run
         run: "gcloud run deploy videogallery --image=$IMAGE_FINAL --region=$REGION --project=$PROJECT_ID"
 
-      - name: Cleanup
-        run: bash cleanup.sh
-
 
   security-scan:
     runs-on: ubuntu-latest

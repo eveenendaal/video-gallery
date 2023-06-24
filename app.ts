@@ -20,16 +20,9 @@ app.get('/robots.txt', async (req: Request, res: Response): Promise<void> => {
 
 interface Gallery {
   name: string
-  category: Category
+  category: string
   stub?: string
   videos?: [Video]
-}
-
-enum Category {
-  VIDEO = 'Videos',
-  HOME_VIDEO = 'Home Videos',
-  MOVIE = 'Movies',
-  UNKNOWN = 'Unknown'
 }
 
 type Galleries = Record<string, Gallery>
@@ -40,130 +33,49 @@ interface Video {
   thumbnail?: string
 }
 
-// Passwords
-const galleries: Galleries = {
-  'cindys-tapes': {
-    name: "Cindy's Tapes",
-    category: Category.HOME_VIDEO
-  },
-  'dads-tapes': {
-    name: "Dad's Tapes",
-    category: Category.HOME_VIDEO
-  },
-  'my-tapes': {
-    name: 'My Tapes',
-    category: Category.HOME_VIDEO
-  },
-  'betamax-tapes': {
-    name: 'Betamax Tapes',
-    category: Category.HOME_VIDEO
-  },
-  'betamax-original-tapes': {
-    name: 'Betamax Tapes (Originals)',
-    category: Category.HOME_VIDEO
-  },
-  'rohrberg-tapes': {
-    name: 'Rohrberg Tapes',
-    category: Category.HOME_VIDEO
-  },
-  'mcdaniel-tapes': {
-    name: 'McDaniel Tapes',
-    category: Category.HOME_VIDEO
-  },
-  'moms-tapes': {
-    name: "Mom's Tapes",
-    category: Category.HOME_VIDEO
-  },
-  '21-day-fix': {
-    name: '21 Day Fix',
-    category: Category.VIDEO
-  },
-  'kids-movies': {
-    name: "Kid's Movies",
-    category: Category.MOVIE
-  },
-  movies: {
-    name: 'Movies',
-    category: Category.MOVIE
-  }
+async function getGallery() : Promise<Galleries> {
+  const [files] = (await bucket.getFiles())
+  const galleries = files.map(file => {
+    const parts = file.name.split('/', 3)
+    const category = parts[0]
+    const group = parts[1]
+    const name = parts[2]
+    return { category, group, name }
+  })
+  .filter(file => file.group !== 'thumbnails' && file.name != null)
+  
+  console.log(galleries)
+  
+  return {}
 }
+
+getGallery().then((galleries) => {})
 
 app.get('/', async (req: Request, res: Response): Promise<void> => {
   res.status(200).send()
 })
 
-const sampleVideo = 'https://archive.org/download/big-bunny-sample-video/SampleVideo.mp4'
-const sampleThumbnail = 'https://eveenendaal.github.io/video-feed-player/example.jpg'
-
-app.get('/demo', async (req: Request, res: Response): Promise<void> => {
-  const response = []
-  for (let i = 1; i <= 2; i++) {
-    const thumbnail = (i % 2) === 0 ? null : sampleThumbnail
-    response.push({
-      name: `Video Group ${i}`,
-      category: `Category ${i}`,
-      videos: [{
-        name: `Demo Video ${i}`,
-        url: sampleVideo,
-        thumbnail
-      }]
-    })
-  }
-  res.status(200).send(response)
-})
-
-app.get('/demo2', async (req: Request, res: Response): Promise<void> => {
-  function generateVideos (name: string, category: string): {
-    name: string
-    stub: string
-    videos: any[]
-    category: string
-  } {
-    const videos = []
-    for (let i = 1; i <= 10; i++) {
-      videos.push({
-        name: `${name} Video ${i}`,
-        url: sampleVideo
-      })
-    }
-
-    return {
-      name,
-      stub: name.toLowerCase().replace(' ', '-'),
-      category,
-      videos
-    }
-  }
-
-  const response = []
-  response.push(generateVideos('Alice', 'Home Videos'))
-  response.push(generateVideos('Bob', 'Home Videos'))
-  response.push(generateVideos('Charlie', 'Home Videos'))
-  response.push(generateVideos('Movies', 'Movies'))
-  response.push(generateVideos('Video', 'Video'))
-  res.status(200).send(response)
-})
-
 app.get('/feed', async (req: Request, res: Response) => {
   const [files] = (await bucket.getFiles())
+  
 
   const galleryList: Gallery[] = []
   const prefixes: string[] = []
 
-  for (const file of files) {
-    const fileParts = file.name.split('/', 1)
-    const prefix: string = fileParts[0]
-    if (prefix != null && !prefixes.includes(prefix)) {
-      const gallery = galleries[prefix]
-      prefixes.push(prefix)
-      galleryList.push({
-        name: gallery.name,
-        stub: prefix,
-        category: gallery.category,
-        videos: await getVideosByPrefix(prefix)
-      })
-    }
-  }
+  // for (const file of files) {
+  //   const fileParts = file.name.split('/', 1)
+  //   const prefix: string = fileParts[0]
+  //   if (prefix != null && !prefixes.includes(prefix)) {
+  //     const gallery = galleries[prefix]
+  //     prefixes.push(prefix)
+  //     galleryList.push({
+  //       name: gallery.name,
+  //       stub: prefix,
+  //       category: gallery.category,
+  //       videos: await getVideosByPrefix(prefix)
+  //     })
+  //   }
+  // }
 
   res.status(200).send(galleryList)
 })
@@ -175,17 +87,17 @@ function generateSecret (stub: string): string {
 
 app.get('/TWs0/index', async (req: Request, res: Response): Promise<void> => {
   const galleryList = new Map()
-  Object.values(Category)
-    .filter((category, _) => category !== Category.UNKNOWN)
-    .forEach((category, _) => {
-      galleryList.set(category.toString(), Object.keys(galleries)
-        .filter(stub => galleries[stub].category === category)
-        .map(stub => ({
-          stub: `/${generateSecret(stub)}/${stub}`,
-          category: galleries[stub].category,
-          name: galleries[stub].name
-        })))
-    })
+  // Object.values(Category)
+  //   .filter((category, _) => category !== Category.UNKNOWN)
+  //   .forEach((category, _) => {
+  //     galleryList.set(category.toString(), Object.keys(galleries)
+  //       .filter(stub => galleries[stub].category === category)
+  //       .map(stub => ({
+  //         stub: `/${generateSecret(stub)}/${stub}`,
+  //         category: galleries[stub].category,
+  //         name: galleries[stub].name
+  //       })))
+  //   })
 
   const displayGalleries: Galleries = {}
   galleryList
@@ -248,20 +160,20 @@ async function getThumbnails (prefix: string): Promise<Map<string, string>> {
   return thumbnails
 }
 
-app.get('/:password/:gallery', async (req: Request, res: Response): Promise<void> => {
-  const stub = req.params.gallery
-  const gallery = galleries[stub]
+// app.get('/:password/:gallery', async (req: Request, res: Response): Promise<void> => {
+//   const stub = req.params.gallery
+//   const gallery = galleries[stub]
 
-  if (generateSecret(stub) === req.params.password) {
-    res.render('gallery', {
-      gallery: gallery.name,
-      category: gallery.category,
-      videos: await getVideosByPrefix(stub)
-    })
-  } else {
-    res.status(404).send()
-  }
-})
+//   if (generateSecret(stub) === req.params.password) {
+//     res.render('gallery', {
+//       gallery: gallery.name,
+//       category: gallery.category,
+//       videos: await getVideosByPrefix(stub)
+//     })
+//   } else {
+//     res.status(404).send()
+//   }
+// })
 
 app.set('views', './views')
 app.set('view engine', 'pug')

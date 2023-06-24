@@ -33,8 +33,7 @@ interface Video {
   thumbnail?: string
 }
 
-async function getGallery() : Promise<Galleries> {
-
+async function getGallery (): Promise<Galleries> {
   // Parse the Videos
   const [files] = (await bucket.getFiles())
   const galleries = files.map(file => {
@@ -44,39 +43,39 @@ async function getGallery() : Promise<Galleries> {
     const name = parts[2]
     return { category, group, name }
   })
-  .filter(file => file.group !== 'thumbnails' && file.name != null)
+    .filter(file => file.group !== 'thumbnails' && file.name != null)
 
-  return galleries.reduce((accumulator: Galleries, 
-    current: {category: string, group: string, name: string}) => {
-      // Get the video url
-      const videoUrl = `https://storage.googleapis.com/${bucketName}/${current.category}/${current.group}/${current.name}`
-      const thumbnailUrl = `https://storage.googleapis.com/${bucketName}/${current.category}/${current.group}/thumbnails/${current.name}`
-      const video: Video = {
-        name: current.name,
-        url: videoUrl,
-        thumbnail: thumbnailUrl
-      }
+  return galleries.reduce((accumulator: Galleries,
+    current: { category: string, group: string, name: string }) => {
+    // Get the video url
+    const videoUrl = `https://storage.googleapis.com/${bucketName}/${current.category}/${current.group}/${current.name}`
+    const thumbnailUrl = `https://storage.googleapis.com/${bucketName}/${current.category}/${current.group}/thumbnails/${current.name}`
+    const video: Video = {
+      name: current.name,
+      url: videoUrl,
+      thumbnail: thumbnailUrl
+    }
 
-      // Create Stub
-      const stub = current.group = current.group
+    // Create Stub
+    const stub = current.group = current.group
       .replace(/\s+/g, '-')
       .replace(/[^a-zA-Z0-9-_]/g, '')
       .toLowerCase()
 
-      // Create the gallery if it doesn't exist
-      if (accumulator[current.group] == null) {
-        accumulator[current.group] = {
-          name: current.group,
-          category: current.category,
-          stub: stub,
-          videos: [video]
-        }
-      } else {
-        accumulator[current.group].videos!!.push(video)
+    // Create the gallery if it doesn't exist
+    if (accumulator[current.group] == null) {
+      accumulator[current.group] = {
+        name: current.group,
+        category: current.category,
+        stub,
+        videos: [video]
       }
+    } else {
+      accumulator[current.group].videos!.push(video)
+    }
 
-      console.log(accumulator)
-    
+    console.log(accumulator)
+
     return accumulator
   }, {})
 }
@@ -89,7 +88,6 @@ app.get('/', async (req: Request, res: Response): Promise<void> => {
 
 app.get('/feed', async (req: Request, res: Response) => {
   const [files] = (await bucket.getFiles())
-  
 
   const galleryList: Gallery[] = []
   const prefixes: string[] = []

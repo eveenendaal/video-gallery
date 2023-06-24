@@ -2,6 +2,7 @@ import express, {type Request, type Response} from 'express'
 import {Storage} from '@google-cloud/storage'
 import * as crypto from 'crypto'
 import {File} from "@google-cloud/storage/build/src/file";
+import * as path from "path";
 
 const app = express()
 
@@ -40,48 +41,55 @@ function generateSecret(stub: string): string {
 async function getGalleries(): Promise<Gallery[]> {
   // Parse the Videos
   const [files] = (await bucket.getFiles())
-  const galleries = files.map(file => {
+  const videoFiles = files.map(file => {
     const parts = file.name.split('/', 3)
     const category = parts[0]
     const group = parts[1]
     const name = parts[2]
-    return {category, group, name}
+    return {category, group, name, filename: file.name}
   })
     .filter(file => file.group !== 'thumbnails' && file.name != null)
 
-  return galleries.reduce((accumulator: Gallery[],
-                           current: { category: string, group: string, name: string }) => {
-    // Get the video url
-    const videoUrl = `https://storage.googleapis.com/${bucketName}/${current.category}/${current.group}/${current.name}`
-    const thumbnailUrl = `https://storage.googleapis.com/${bucketName}/${current.category}/${current.group}/thumbnails/${current.name}`
-    const video: Video = {
-      name: current.name,
-      url: videoUrl,
-      thumbnail: thumbnailUrl
-    }
+  // Sign Urls
+  const galleries = [];
+  for (const videoFile of videoFiles) {
+    const thumbnailFilename = path.parse(videoFile.name).base + ".jpg"
 
     // Create Stub
-    const categoryStub = current.group = current.group
+    const categoryStub = videoFile.group = videoFile.group
       .replace(/\s+/g, '-')
       .replace(/[^a-zA-Z0-9-_]/g, '')
       .toLowerCase()
     const stub = `${generateSecret(categoryStub)}/${categoryStub}`
 
-    // Create the gallery if it doesn't exist
-    let gallery: Gallery | undefined = accumulator.find(gallery => gallery.name == current.group)
+    galleries.push({
+      name: videoFile.group,
+      category: videoFile.category,
+      stub: stub,
+      videos: [{
+        name: videoFile.name,
+        url: await signUrl(`https://storage.googleapis.com/${bucketName}/${videoFile.filename}`) ?? "",
+        thumbnail: await signUrl(`https://storage.googleapis.com/${bucketName}/${videoFile.category}/${videoFile.group}/thumbnails/${thumbnailFilename}`)
+      } as Video]
+    } as Gallery);
+  }
+
+  const finalGalleries = galleries.reduce((accumulator: Gallery[],
+                           current: Gallery) => {
+    let gallery: Gallery | undefined = accumulator.find(gallery => gallery.name == current.name)
     if (gallery == null) {
-      gallery = {
-        name: current.group,
-        category: current.category,
-        stub,
-        videos: [video]
-      }
+      gallery = current
       accumulator.push(gallery)
-    } else {
-      gallery.videos!.push(video)
     }
+    current.videos?.forEach(video => {
+      gallery?.videos?.push(video)
+    })
     return accumulator
   }, [])
+
+  console.log(finalGalleries)
+
+  return finalGalleries
 }
 
 app.get('/', async (req: Request, res: Response): Promise<void> => {
@@ -89,13 +97,12 @@ app.get('/', async (req: Request, res: Response): Promise<void> => {
 })
 
 app.get('/feed', async (req: Request, res: Response) => {
-  const galleries = await getGalleries()
-  res.status(200).send(galleries)
+  res.status(200).send(await getGalleries())
 })
 
 app.get('/TWs0/index', async (req: Request, res: Response): Promise<void> => {
   res.render('index', {
-    galleries: getGalleries()
+    galleries: await getGalleries()
   })
 })
 
@@ -113,10 +120,9 @@ async function signUrl(prefix: string): Promise<string | null> {
 
   let response = await bucket.getFiles({prefix: `${prefix}/`, delimiter: '/'});
 
-  const files = response
+  const files = await response
     .filter(file => file.getSignedUrl !== undefined)
     .map(async (file: File) => await signFile(file))
-    .filter(url => url !== null)
     .pop()
 
   return files!!

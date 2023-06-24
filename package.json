@@ -7,7 +7,7 @@
   "scripts": {
     "compile:ts": "tsc",
     "compile:scss": "node-sass --recursive scss --output out/css",
-    "start": "node out/app.js",
+    "start": "tsc && node out/app.js",
     "compile-start": "nodemon app.ts",
     "eslint:github-action": "eslint . --fix"
   },

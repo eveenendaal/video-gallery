@@ -1,0 +1,4 @@
+GET http://localhost:8080/TWs0/index
+
+###
+GET http://localhost:8080/feed

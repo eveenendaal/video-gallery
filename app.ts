@@ -57,10 +57,11 @@ async function getGallery (): Promise<Galleries> {
     }
 
     // Create Stub
-    const stub = current.group = current.group
+    const categoryStub = current.group = current.group
       .replace(/\s+/g, '-')
       .replace(/[^a-zA-Z0-9-_]/g, '')
       .toLowerCase()
+    const stub = `${generateSecret(categoryStub)}/${categoryStub}`
 
     // Create the gallery if it doesn't exist
     if (accumulator[current.group] == null) {

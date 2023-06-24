@@ -1,6 +1,7 @@
-import express, { type Request, type Response } from 'express'
-import { Storage } from '@google-cloud/storage'
+import express, {type Request, type Response} from 'express'
+import {Storage} from '@google-cloud/storage'
 import * as crypto from 'crypto'
+import {File} from "@google-cloud/storage/build/src/file";
 
 const app = express()
 
@@ -9,7 +10,7 @@ app.disable('x-powered-by')
 const projectId = 'veenendaal-base'
 const bucketName = 'veenendaal-videos'
 
-const storage = new Storage({ projectId })
+const storage = new Storage({projectId})
 const bucket = storage.bucket(bucketName)
 
 app.use(express.static('out'))
@@ -25,15 +26,18 @@ interface Gallery {
   videos?: [Video]
 }
 
-type Galleries = Record<string, Gallery>
-
 interface Video {
   name: string
   url: string
   thumbnail?: string
 }
 
-async function getGallery (): Promise<Galleries> {
+function generateSecret(stub: string): string {
+  const md5Hasher = crypto.createHmac('md5', 'QuxFzI9lcmwfcg')
+  return md5Hasher.update(stub).digest('base64url').slice(0, 4)
+}
+
+async function getGalleries(): Promise<Gallery[]> {
   // Parse the Videos
   const [files] = (await bucket.getFiles())
   const galleries = files.map(file => {
@@ -41,12 +45,12 @@ async function getGallery (): Promise<Galleries> {
     const category = parts[0]
     const group = parts[1]
     const name = parts[2]
-    return { category, group, name }
+    return {category, group, name}
   })
     .filter(file => file.group !== 'thumbnails' && file.name != null)
 
-  return galleries.reduce((accumulator: Galleries,
-    current: { category: string, group: string, name: string }) => {
+  return galleries.reduce((accumulator: Gallery[],
+                           current: { category: string, group: string, name: string }) => {
     // Get the video url
     const videoUrl = `https://storage.googleapis.com/${bucketName}/${current.category}/${current.group}/${current.name}`
     const thumbnailUrl = `https://storage.googleapis.com/${bucketName}/${current.category}/${current.group}/thumbnails/${current.name}`
@@ -64,131 +68,73 @@ async function getGallery (): Promise<Galleries> {
     const stub = `${generateSecret(categoryStub)}/${categoryStub}`
 
     // Create the gallery if it doesn't exist
-    if (accumulator[current.group] == null) {
-      accumulator[current.group] = {
+    let gallery: Gallery | undefined = accumulator.find(gallery => gallery.name == current.group)
+    if (gallery == null) {
+      gallery = {
         name: current.group,
         category: current.category,
         stub,
         videos: [video]
       }
+      accumulator.push(gallery)
     } else {
-      accumulator[current.group].videos!.push(video)
+      gallery.videos!.push(video)
     }
-
-    console.log(accumulator)
-
     return accumulator
-  }, {})
+  }, [])
 }
-
-getGallery().then((galleries) => {})
 
 app.get('/', async (req: Request, res: Response): Promise<void> => {
   res.status(200).send()
 })
 
 app.get('/feed', async (req: Request, res: Response) => {
-  const galleries = await getGallery()
-
-  const galleryList = Object.values(galleries)
-
-  res.status(200).send(galleryList)
+  const galleries = await getGalleries()
+  res.status(200).send(galleries)
 })
 
-function generateSecret (stub: string): string {
-  const md5Hasher = crypto.createHmac('md5', 'QuxFzI9lcmwfcg')
-  return md5Hasher.update(stub).digest('base64url').slice(0, 4)
-}
-
 app.get('/TWs0/index', async (req: Request, res: Response): Promise<void> => {
-  const galleryList = new Map()
-  // Object.values(Category)
-  //   .filter((category, _) => category !== Category.UNKNOWN)
-  //   .forEach((category, _) => {
-  //     galleryList.set(category.toString(), Object.keys(galleries)
-  //       .filter(stub => galleries[stub].category === category)
-  //       .map(stub => ({
-  //         stub: `/${generateSecret(stub)}/${stub}`,
-  //         category: galleries[stub].category,
-  //         name: galleries[stub].name
-  //       })))
-  //   })
-
-  const displayGalleries: Galleries = {}
-  galleryList
-    .forEach((value, key) => {
-      displayGalleries[key.toString()] = value
-    })
-
   res.render('index', {
-    galleries: displayGalleries
+    galleries: getGalleries()
   })
 })
 
-async function getVideosByPrefix (prefix: string): Promise<[Video]> {
-  const [files] = (await bucket.getFiles({ prefix: `${prefix}/`, delimiter: '/' }))
-  const thumbnails: Map<string, string> = await getThumbnails(prefix)
-
-  const videos = []
-  for (const file of files) {
-    const urls: [string] | [] = await file.getSignedUrl({
+async function signUrl(prefix: string): Promise<string | null> {
+  async function signFile(file: File): Promise<string | null> {
+    const response = await file.getSignedUrl({
       action: 'read',
       expires: Date.now() + 1000 * 60 * 60 * 24 // one day
-    }).catch(error => { console.error(error) }) ?? []
+    }).catch(error => {
+      console.error(error)
+    }) ?? null
 
-    const pathParts = file.name.split('/')
-    pathParts.splice(0, 1)
-    const fileName: string = pathParts.join('/').replace(/\.\w+$/g, '')
-
-    if (urls != null) {
-      videos.push({
-        name: fileName,
-        url: urls[0],
-        thumbnail: thumbnails.get(fileName) ?? null
-      })
-    }
+    return response?.[0] ?? null
   }
 
-  return videos as [Video]
+  let response = await bucket.getFiles({prefix: `${prefix}/`, delimiter: '/'});
+
+  const files = response
+    .filter(file => file.getSignedUrl !== undefined)
+    .map(async (file: File) => await signFile(file))
+    .filter(url => url !== null)
+    .pop()
+
+  return files!!
 }
 
-async function getThumbnails (prefix: string): Promise<Map<string, string>> {
-  const [files] = (await bucket.getFiles({ prefix: `${prefix}/thumbnails/`, delimiter: '/' }))
-  const thumbnails = new Map<string, string>()
+app.get('/:password/:gallery', async (req: Request, res: Response): Promise<void> => {
+  const stub = req.params.gallery
+  const galleries = await getGalleries()
+  const gallery = galleries.find(gallery => gallery.stub === stub)
 
-  for (const file of files) {
-    const urls: [string] | [] = await file.getSignedUrl({
-      action: 'read',
-      expires: Date.now() + 1000 * 60 * 60 * 24 // one day
-    }).catch(error => { console.error(error) }) ?? []
-
-    const pathParts = file.name.split('/')
-    pathParts.splice(0, 2)
-
-    const fileName = pathParts.join('/').replace(/\.\w+$/g, '')
-
-    if (urls[0] != null) {
-      thumbnails.set(fileName, urls[0])
-    }
+  if (generateSecret(stub) === req.params.password) {
+    res.render('gallery', {
+      gallery
+    })
+  } else {
+    res.status(404).send()
   }
-
-  return thumbnails
-}
-
-// app.get('/:password/:gallery', async (req: Request, res: Response): Promise<void> => {
-//   const stub = req.params.gallery
-//   const gallery = galleries[stub]
-
-//   if (generateSecret(stub) === req.params.password) {
-//     res.render('gallery', {
-//       gallery: gallery.name,
-//       category: gallery.category,
-//       videos: await getVideosByPrefix(stub)
-//     })
-//   } else {
-//     res.status(404).send()
-//   }
-// })
+})
 
 app.set('views', './views')
 app.set('view engine', 'pug')

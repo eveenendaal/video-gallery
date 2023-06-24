@@ -34,6 +34,8 @@ interface Video {
 }
 
 async function getGallery() : Promise<Galleries> {
+
+  // Parse the Videos
   const [files] = (await bucket.getFiles())
   const galleries = files.map(file => {
     const parts = file.name.split('/', 3)
@@ -43,10 +45,40 @@ async function getGallery() : Promise<Galleries> {
     return { category, group, name }
   })
   .filter(file => file.group !== 'thumbnails' && file.name != null)
-  
-  console.log(galleries)
-  
-  return {}
+
+  return galleries.reduce((accumulator: Galleries, 
+    current: {category: string, group: string, name: string}) => {
+      // Get the video url
+      const videoUrl = `https://storage.googleapis.com/${bucketName}/${current.category}/${current.group}/${current.name}`
+      const thumbnailUrl = `https://storage.googleapis.com/${bucketName}/${current.category}/${current.group}/thumbnails/${current.name}`
+      const video: Video = {
+        name: current.name,
+        url: videoUrl,
+        thumbnail: thumbnailUrl
+      }
+
+      // Create Stub
+      const stub = current.group = current.group
+      .replace(/\s+/g, '-')
+      .replace(/[^a-zA-Z0-9-_]/g, '')
+      .toLowerCase()
+
+      // Create the gallery if it doesn't exist
+      if (accumulator[current.group] == null) {
+        accumulator[current.group] = {
+          name: current.group,
+          category: current.category,
+          stub: stub,
+          videos: [video]
+        }
+      } else {
+        accumulator[current.group].videos!!.push(video)
+      }
+
+      console.log(accumulator)
+    
+    return accumulator
+  }, {})
 }
 
 getGallery().then((galleries) => {})

@@ -88,25 +88,9 @@ app.get('/', async (req: Request, res: Response): Promise<void> => {
 })
 
 app.get('/feed', async (req: Request, res: Response) => {
-  const [files] = (await bucket.getFiles())
+  const galleries = await getGallery()
 
-  const galleryList: Gallery[] = []
-  const prefixes: string[] = []
-
-  // for (const file of files) {
-  //   const fileParts = file.name.split('/', 1)
-  //   const prefix: string = fileParts[0]
-  //   if (prefix != null && !prefixes.includes(prefix)) {
-  //     const gallery = galleries[prefix]
-  //     prefixes.push(prefix)
-  //     galleryList.push({
-  //       name: gallery.name,
-  //       stub: prefix,
-  //       category: gallery.category,
-  //       videos: await getVideosByPrefix(prefix)
-  //     })
-  //   }
-  // }
+  const galleryList = Object.values(galleries)
 
   res.status(200).send(galleryList)
 })

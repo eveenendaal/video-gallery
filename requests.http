@@ -1,0 +1,2 @@
+### Get Feed
+GET http://localhost:8080/feed

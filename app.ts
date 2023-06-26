@@ -180,8 +180,8 @@ app.get(`/${secretKey}/index`, async (req: Request, res: Response): Promise<void
   })
 })
 
-app.get('/:password/:gallery', async (req: Request, res: Response): Promise<void> => {
-  const stub = `/${req.params.password}/${req.params.gallery}`
+app.get('/:key/:gallery', async (req: Request, res: Response): Promise<void> => {
+  const stub = `/${req.params.key}/${req.params.gallery}`
   const galleries = (await getGalleries())
   const gallery = galleries.find(gallery => gallery.stub === stub)
 

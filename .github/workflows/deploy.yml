@@ -15,7 +15,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  BRANCH: ${{ github.ref_name }}
+  IMAGE_SOURCE: "ghcr.io/${{ github.repository }}:${{ github.ref_name }}"
 
 jobs:
   run-linters:
@@ -102,7 +102,7 @@ jobs:
         with:
           format: 'github'
           output: 'dependency-results.sbom.json'
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.BRANCH }}
+          image-ref: ${{ env.IMAGE_SOURCE }}
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'

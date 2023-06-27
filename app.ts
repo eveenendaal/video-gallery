@@ -170,7 +170,7 @@ app.get('/', async (req: Request, res: Response): Promise<void> => {
   res.status(200).send()
 })
 
-app.get('/${secretKey}/feed', async (req: Request, res: Response) => {
+app.get(`/${secretKey}/feed`, async (req: Request, res: Response) => {
   res.status(200).send(await getGalleries())
 })
 

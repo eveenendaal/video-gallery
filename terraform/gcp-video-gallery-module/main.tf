@@ -59,7 +59,7 @@ resource "google_cloud_run_service" "video_gallery" {
   }
 }
 
-resource "google_cloud_run_service_iam_policy" "video-gallery-noauth" {
+resource "google_cloud_run_service_iam_policy" "video_gallery_noauth" {
   location    = google_cloud_run_service.video_gallery.location
   project     = google_cloud_run_service.video_gallery.project
   service     = google_cloud_run_service.video_gallery.name
@@ -67,7 +67,7 @@ resource "google_cloud_run_service_iam_policy" "video-gallery-noauth" {
 }
 
 // Adding mappings
-resource "google_cloud_run_domain_mapping" "video-gallery" {
+resource "google_cloud_run_domain_mapping" "video_gallery" {
   location = var.default_region
   name     = var.domain_name
 

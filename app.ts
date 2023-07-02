@@ -57,16 +57,24 @@ function generateSecret (stub: string): string {
   return md5Hasher.update(stub).digest('base64url').slice(0, 4)
 }
 
+const allowedExtensions = [
+  '.mp4', '.m4v', '.webm', '.mov', '.avi',
+  '.jpg', '.png', '.jpeg'
+]
+
 async function getGalleries (): Promise<Gallery[]> {
   // Parse the Videos
   const [files] = (await bucket.getFiles())
-  const videoFiles = files.map(file => {
-    const parts = file.name.split('/', 3)
-    const category = parts[0]
-    const group = parts[1]
-    const name = parts[2]
-    return { category, group, name, filename: file.name }
-  })
+  const videoFiles = files
+  // filter to only video and image files
+    .filter(file => allowedExtensions.includes(path.parse(file.name).ext))
+    .map(file => {
+      const parts = file.name.split('/', 3)
+      const category = parts[0]
+      const group = parts[1]
+      const name = parts[2]
+      return { category, group, name, filename: file.name }
+    })
     .filter(file => file.group !== 'thumbnails' &&
       file.name != null &&
       !file.name.startsWith('thumbnails'))

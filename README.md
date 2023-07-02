@@ -72,50 +72,50 @@ Below is the formal schema for the video feed the player expects.
 
 ```
 {
-	"$schema": "http://json-schema.org/draft-04/schema#",
-	"type": "array",
-	"items": [
-	  {
-		"type": "object",
-		"properties": {
-		  "name": {
-			"type": "string"
-		  },
-		  "category": {
-			"type": "string"
-		  },
-		  "videos": {
-			"type": "array",
-			"items": [
-			  {
-				"type": "object",
-				"properties": {
-				  "name": {
-					"type": "string"
-				  },
-				  "url": {
-					"type": "string"
-				  },
-				  "thumbnail": {
-					"type": "string"
-				  }
-				},
-				"required": [
-				  "name",
-				  "url"
-				]
-			  }
-			]
-		  }
-		},
-		"required": [
-		  "name",
-		  "category",
-		  "videos"
-		]
-	  }
-	]
-  }
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "type": "array",
+    "items": [
+        {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "videos": {
+                    "type": "array",
+                    "items": [
+                        {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "url": {
+                                    "type": "string"
+                                },
+                                "thumbnail": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "name",
+                                "url"
+                            ]
+                        }
+                    ]
+                }
+            },
+            "required": [
+                "name",
+                "category",
+                "videos"
+            ]
+        }
+    ]
+}
 ```
 
 ### Feed Example

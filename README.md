@@ -33,6 +33,10 @@ To get started, simply copy the [docker image](ghcr.io/eveenendaal/video-gallery
 
 **SECRET_KEY** - A unique string. This is used to prefix all galleries with a random string to prevent people from guessing the gallery url.
 
+### Running Locally
+
+To run locally, you need to configure the 3 environment variables above as well as set up the default gcp credentials. You can do this by installing the [Google Cloud SDK](https://cloud.google.com/sdk/) and running `gcloud auth login --update-adc`.
+
 ### Storage Bucket
 The application assumes the Storage Bucket is stored as follows:
 

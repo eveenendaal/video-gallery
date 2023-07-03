@@ -17,6 +17,10 @@ env:
   IMAGE_NAME: ${{ github.repository }}
   IMAGE_SOURCE: "ghcr.io/${{ github.repository }}:${{ github.ref_name }}"
 
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   run-linters:
     name: run-linters
@@ -45,7 +49,6 @@ jobs:
           commit_options: '--no-verify'
 
   build:
-    concurrency: ${{ github.workflow }}
     runs-on: ubuntu-latest
     needs: run-linters
     environment: default

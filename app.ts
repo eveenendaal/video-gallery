@@ -57,8 +57,10 @@ function generateSecret (stub: string): string {
   return md5Hasher.update(stub).digest('base64url').slice(0, 4)
 }
 
-const allowedExtensions = [
-  '.mp4', '.m4v', '.webm', '.mov', '.avi',
+const videoExtensions = [
+  '.mp4', '.m4v', '.webm', '.mov', '.avi'
+]
+const thumbnailExtensions = [
   '.jpg', '.png', '.jpeg'
 ]
 
@@ -66,8 +68,8 @@ async function getGalleries (): Promise<Gallery[]> {
   // Parse the Videos
   const [files] = (await bucket.getFiles())
   const videoFiles = files
-  // filter to only video and image files
-    .filter(file => allowedExtensions.includes(path.parse(file.name).ext))
+    // filter to only video and image files
+    .filter(file => videoExtensions.includes(path.parse(file.name).ext))
     .map(file => {
       const parts = file.name.split('/', 3)
       const category = parts[0]
@@ -75,9 +77,6 @@ async function getGalleries (): Promise<Gallery[]> {
       const name = parts[2]
       return { category, group, name, filename: file.name }
     })
-    .filter(file => file.group !== 'thumbnails' &&
-      file.name != null &&
-      !file.name.startsWith('thumbnails'))
 
   videoFiles.forEach(file => {
     file.name = path.parse(file.name).name
@@ -86,8 +85,6 @@ async function getGalleries (): Promise<Gallery[]> {
   // Sign Urls
   const galleries = []
   for (const videoFile of videoFiles) {
-    const thumbnailFilename = videoFile.name + '.jpg'
-
     // Create Stub
     const categoryStub = videoFile.group
       .replace(/\s+/g, '-')
@@ -97,7 +94,13 @@ async function getGalleries (): Promise<Gallery[]> {
 
     // Create Gallery
     const videoFileName = await signUrl(`${videoFile.filename}`)
-    const thumbnailFileName = await signUrl(`${videoFile.category}/${videoFile.group}/thumbnails/${thumbnailFilename}`)
+    let thumbnailFileName: string | null = null
+    for (const extension of thumbnailExtensions) {
+      if (thumbnailFileName == null) {
+        const thumbnailFilename = `${videoFile.name}${extension}`
+        thumbnailFileName = await signUrl(`${videoFile.category}/${videoFile.group}/${thumbnailFilename}`)
+      }
+    }
 
     const gallery: Gallery = {
       name: videoFile.group,

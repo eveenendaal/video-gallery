@@ -97,7 +97,7 @@ async function getGalleries (): Promise<Gallery[]> {
     let thumbnailFileName: string | null = null
     for (const extension of thumbnailExtensions) {
       if (thumbnailFileName == null) {
-        const thumbnailFilename = `${videoFile.name}.${extension}`
+        const thumbnailFilename = `${videoFile.name}${extension}`
         thumbnailFileName = await signUrl(`${videoFile.category}/${videoFile.group}/${thumbnailFilename}`)
       }
     }

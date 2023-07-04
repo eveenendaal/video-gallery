@@ -77,6 +77,16 @@ async function getGalleries (): Promise<Gallery[]> {
       const name = parts[2]
       return { category, group, name, filename: file.name }
     })
+  const thumbnailFiles = files
+    // filter to only video and image files
+    .filter(file => thumbnailExtensions.includes(path.parse(file.name).ext))
+    .map(file => {
+      const parts = file.name.split('/', 3)
+      const category = parts[0]
+      const group = parts[1]
+      const name = parts[2]
+      return { category, group, name, filename: file.name }
+    })
 
   videoFiles.forEach(file => {
     file.name = path.parse(file.name).name
@@ -94,13 +104,9 @@ async function getGalleries (): Promise<Gallery[]> {
 
     // Create Gallery
     const videoFileName = await signUrl(`${videoFile.filename}`)
-    let thumbnailFileName: string | null = null
-    for (const extension of thumbnailExtensions) {
-      if (thumbnailFileName == null) {
-        const thumbnailFilename = `${videoFile.name}${extension}`
-        thumbnailFileName = await signUrl(`${videoFile.category}/${videoFile.group}/${thumbnailFilename}`)
-      }
-    }
+    const thumbnailFileName = thumbnailFiles
+      .filter(file => file.group === videoFile.group)
+      .find(file => file.name === videoFile.name)?.filename ?? null
 
     const gallery: Gallery = {
       name: videoFile.group,
@@ -109,7 +115,7 @@ async function getGalleries (): Promise<Gallery[]> {
       videos: [{
         name: videoFile.name,
         url: videoFileName ?? '',
-        thumbnail: thumbnailFileName
+        thumbnail: (thumbnailFileName !== null) ? await signUrl(thumbnailFileName) : null
       }]
     }
 

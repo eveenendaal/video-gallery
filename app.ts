@@ -91,6 +91,9 @@ async function getGalleries (): Promise<Gallery[]> {
   videoFiles.forEach(file => {
     file.name = path.parse(file.name).name
   })
+  thumbnailFiles.forEach(file => {
+    file.name = path.parse(file.name).name
+  })
 
   // Sign Urls
   const galleries = []

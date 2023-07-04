@@ -1,7 +1,7 @@
-import express, { type Request, type Response } from 'express'
-import { Storage } from '@google-cloud/storage'
+import express, {type Request, type Response} from 'express'
+import {Storage} from '@google-cloud/storage'
 import * as crypto from 'crypto'
-import { type File } from '@google-cloud/storage/build/src/file'
+import {type File} from '@google-cloud/storage/build/src/file'
 import * as path from 'path'
 import NodeCache from 'node-cache'
 
@@ -24,7 +24,7 @@ if (projectId === '' || bucketName === '' || secretKey === '') {
 }
 
 // Google Cloud Storage
-const storage = new Storage({ projectId })
+const storage = new Storage({projectId})
 const bucket = storage.bucket(bucketName)
 
 // Create Cache
@@ -52,32 +52,31 @@ interface CacheResult {
 }
 
 // Functions
-function generateSecret (stub: string): string {
+function generateSecret(stub: string): string {
   const md5Hasher = crypto.createHmac('md5', secretKey)
   return md5Hasher.update(stub).digest('base64url').slice(0, 4)
 }
 
-const allowedExtensions = [
-  '.mp4', '.m4v', '.webm', '.mov', '.avi',
+const videoExtensions = [
+  '.mp4', '.m4v', '.webm', '.mov', '.avi'
+]
+const thumbnailExtensions = [
   '.jpg', '.png', '.jpeg'
 ]
 
-async function getGalleries (): Promise<Gallery[]> {
+async function getGalleries(): Promise<Gallery[]> {
   // Parse the Videos
   const [files] = (await bucket.getFiles())
   const videoFiles = files
-  // filter to only video and image files
-    .filter(file => allowedExtensions.includes(path.parse(file.name).ext))
+    // filter to only video and image files
+    .filter(file => videoExtensions.includes(path.parse(file.name).ext))
     .map(file => {
       const parts = file.name.split('/', 3)
       const category = parts[0]
       const group = parts[1]
       const name = parts[2]
-      return { category, group, name, filename: file.name }
+      return {category, group, name, filename: file.name}
     })
-    .filter(file => file.group !== 'thumbnails' &&
-      file.name != null &&
-      !file.name.startsWith('thumbnails'))
 
   videoFiles.forEach(file => {
     file.name = path.parse(file.name).name
@@ -86,7 +85,6 @@ async function getGalleries (): Promise<Gallery[]> {
   // Sign Urls
   const galleries = []
   for (const videoFile of videoFiles) {
-    const thumbnailFilename = videoFile.name + '.jpg'
 
     // Create Stub
     const categoryStub = videoFile.group
@@ -97,7 +95,13 @@ async function getGalleries (): Promise<Gallery[]> {
 
     // Create Gallery
     const videoFileName = await signUrl(`${videoFile.filename}`)
-    const thumbnailFileName = await signUrl(`${videoFile.category}/${videoFile.group}/thumbnails/${thumbnailFilename}`)
+    let thumbnailFileName: string | null = null
+    for (const extension of thumbnailExtensions) {
+      if (thumbnailFileName == null) {
+        const thumbnailFilename = videoFile.name + '.jpg'
+        thumbnailFileName = await signUrl(`${videoFile.category}/${videoFile.group}/${thumbnailFilename}`)
+      }
+    }
 
     const gallery: Gallery = {
       name: videoFile.group,
@@ -114,7 +118,7 @@ async function getGalleries (): Promise<Gallery[]> {
   }
 
   return galleries.reduce((accumulator: Gallery[],
-    current: Gallery) => {
+                           current: Gallery) => {
     let gallery: Gallery | undefined = accumulator.find(gallery => gallery.name === current.name)
     if (gallery == null) {
       gallery = current
@@ -128,7 +132,7 @@ async function getGalleries (): Promise<Gallery[]> {
   }, [])
 }
 
-function toDisplay (galleries: Gallery[]): Galleries {
+function toDisplay(galleries: Gallery[]): Galleries {
   const result: Galleries = {}
   galleries.forEach(gallery => {
     const stub = gallery.category
@@ -141,8 +145,8 @@ function toDisplay (galleries: Gallery[]): Galleries {
   return result
 }
 
-async function signUrl (filename: string): Promise<string | null> {
-  async function signFile (file: File): Promise<string | null> {
+async function signUrl(filename: string): Promise<string | null> {
+  async function signFile(file: File): Promise<string | null> {
     const response = await file.getSignedUrl({
       action: 'read',
       expires: Date.now() + 1000 * 60 * 60 * 24 // one day

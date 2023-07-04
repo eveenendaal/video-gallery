@@ -135,18 +135,16 @@ The application assumes the Storage Bucket is stored as follows:
 * Category
   * Group
     * Video.vid
-    * thumbnail
-      * Video.pic (optional)
+    * Video.pic (optional)
 
 Here's a real example
 
 * Movies
   * Movies
     * My Movie 1.mp4
+    * My Movie 1.jpg
     * My Movie 2.mp4
-    * thumbnail
-      * My Movie 1.jpg
-      * My Movie 2.jpg
+    * My Movie 2.jpg
 * Home Videos
   * Bob
     * Video of Bob 1.mp4

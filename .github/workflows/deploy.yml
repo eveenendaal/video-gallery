@@ -122,4 +122,5 @@ jobs:
         with:
           package-name: video-gallery
           package-type: container
-          min-versions-to-keep: 5
+          min-versions-to-keep: 0
+          delete-only-untagged-versions: true

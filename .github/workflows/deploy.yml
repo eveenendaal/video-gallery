@@ -93,7 +93,6 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            latest
             {{branch}}
             {{tag}}
       - name: Build and push Docker image

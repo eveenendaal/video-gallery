@@ -94,8 +94,8 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             latest
-            ${{ branch }}
-            ${{ tag }}
+            {{branch}}
+            {{tag}}
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
         with:

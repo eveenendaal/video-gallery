@@ -7,7 +7,7 @@ on:
     branches:
       - master
     tags:
-      - 'v*'
+      - '*'
     paths:
       - 'scss/**'
       - 'views/**'

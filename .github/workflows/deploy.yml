@@ -87,7 +87,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: anothrNick/github-tag-action@1.64.0
+      - uses: anothrNick/github-tag-action@1.67.0
         id: bump
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -100,9 +100,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=semver,pattern={{version}},value={{steps.bump.outputs.new_tag}}
-            type=semver,pattern={{major}}.{{minor}},value={{steps.bump.outputs.new_tag}}
-            type=semver,pattern={{major}},value={{steps.bump.outputs.new_tag}}
+            type=semver,pattern={{version}},value=${{ steps.bump.outputs.new_tag }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.bump.outputs.new_tag }}
+            type=semver,pattern={{major}},value=${{ steps.bump.outputs.new_tag }}
             type=ref,event=branch
             type=ref,event=pr
             type=raw,value=latest

@@ -100,7 +100,6 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=semver,pattern={{version}},value=${{ steps.bump.outputs.new_tag }}
             type=semver,pattern={{major}}.{{minor}},value=${{ steps.bump.outputs.new_tag }}
             type=semver,pattern={{major}},value=${{ steps.bump.outputs.new_tag }}
             type=ref,event=branch

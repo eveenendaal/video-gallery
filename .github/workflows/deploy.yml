@@ -6,8 +6,6 @@ on:
   push:
     branches:
       - 'master'
-    tags:
-      - '*'
     paths:
       - 'scss/**'
       - 'views/**'
@@ -89,17 +87,25 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - uses: anothrNick/github-tag-action@1.64.0
+        id: bump
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WITH_V: false
+          DEFAULT_BUMP: patch
+
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v4
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+            type=semver,pattern={{version}},value={{steps.bump.outputs.new_tag}}
+            type=semver,pattern={{major}}.{{minor}},value={{steps.bump.outputs.new_tag}}
+            type=semver,pattern={{major}},value={{steps.bump.outputs.new_tag}}
             type=ref,event=branch
             type=ref,event=pr
+            type=raw,value=latest
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
@@ -108,12 +114,6 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-
-      - uses: anothrNick/github-tag-action@1.64.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          WITH_V: false
-          DEFAULT_BUMP: patch
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master

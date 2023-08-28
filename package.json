@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "license": "GPL-3.0",
-  "module": "commonjs",
+  "type": "commonjs",
   "scripts": {
     "compile:ts": "tsc",
     "compile:scss": "node-sass --recursive scss --output out/css",

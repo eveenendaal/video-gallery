@@ -3,10 +3,11 @@
   "display": "Node 18",
   "compilerOptions": {
     "lib": [
-      "es2020"
+      "es2022"
     ],
     "module": "commonjs",
-    "target": "es2020",
+    "moduleResolution": "node",
+    "target": "es2022",
     "outDir": "out",
     "strict": true,
     "esModuleInterop": true,

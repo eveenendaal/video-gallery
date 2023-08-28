@@ -2,8 +2,7 @@
   "name": "video-gallery",
   "version": "1.0.0",
   "private": true,
-  "license": "UNLICENSED",
-  "type": "commonjs",
+  "license": "GPL-3.0",
   "scripts": {
     "compile:ts": "tsc",
     "compile:scss": "node-sass --recursive scss --output out/css",

@@ -2,25 +2,26 @@ doctype html
 html
     head
         meta(name="viewport", content="width=device-width,initial-scale=1.0")
-        title #{name}
-        link(rel='stylesheet' href='/css/styles.css')
+        title #{Name}
+        style 
+            include ../public/styles.css
     body
         div.header.hero.is-dark.is-small
             div.hero-head
                 div.container.has-text-centered-mobile.block
-                    h1.title.is-2 #{name}
-                    h2.subtitle.is-3 #{category}
+                    h1.title.is-2 #{Name}
+                    h2.subtitle.is-3 #{Category}
         div.container
             div.videos
                 div.columns.is-multiline.is-flex-direction-row
-                    each video in videos
+                    each Video,_ in Videos
                         div.column.is-4
                             div.video.has-text-centered.has-border
                                 div.block
-                                    if video.thumbnail
-                                        a(href=video.url)
-                                            img(src=video.thumbnail).image.m-auto
+                                    if Video.Thumbnail
+                                        a(href=Video.Url)
+                                            img(src=Video.Thumbnail).image.m-auto
                                     else
-                                        a.button.is-medium.is-link(href=video.url) Play
+                                        a.button.is-medium.is-link(href=Video.Url) Play
                                 div.caption
-                                    div.subtitle.is-5 #{video.name}
+                                    div.subtitle.is-5 #{Video.Name}

@@ -1,5 +1,8 @@
-FROM node:18-slim
+FROM ubuntu:jammy
 
-COPY . .
+COPY views /app/views
+COPY video-gallery /app/veenendaal-website
 
-CMD ["npm", "start"]
+WORKDIR /app
+
+CMD ["/app/video-gallery"]

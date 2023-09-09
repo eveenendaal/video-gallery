@@ -3,7 +3,8 @@ html
     head
         meta(name="viewport", content="width=device-width,initial-scale=1.0")
         title Galleries
-        link(rel='stylesheet' href='/css/styles.css')
+        style 
+            include ../public/styles.css
     body
         div.header.hero.is-dark.is-small
             div.hero-head
@@ -11,9 +12,9 @@ html
                     h1.title.is-2 Galleries
         div.container
             div.videos
-                each _, category in galleries
+                each category, _ in Categories
                     div.category
-                        h2.title.is3 #{category}
-                        each gallery in galleries[category]
+                        h2.title.is3 #{category.Name}
+                        each gallery in category.Galleries
                            div.video
-                               a.button.is-link(href=gallery.stub) #{gallery.name}
+                               a.button.is-link(href=gallery.Stub) #{gallery.Name}

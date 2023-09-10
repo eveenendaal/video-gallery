@@ -28,45 +28,16 @@ type Category struct {
 type Gallery struct {
 	Name     string  `json:"name"`
 	Category string  `json:"category"`
-	Stub     string  `json:"stub"`
+	Stub     string  `json:"-"`
 	Videos   []Video `json:"videos"`
 }
 
-type FeedGallery struct {
-	Name     string      `json:"name"`
-	Category string      `json:"category"`
-	Videos   []FeedVideo `json:"videos"`
-}
-
-// ToFeedGallery Convert Gallery to FeedGallery
-func (g Gallery) ToFeedGallery() FeedGallery {
-	var feedVideos []FeedVideo
-	for _, video := range g.Videos {
-		feedVideos = append(feedVideos, FeedVideo{
-			Name:      video.Name,
-			Url:       video.Url,
-			Thumbnail: video.Thumbnail,
-		})
-	}
-	return FeedGallery{
-		Name:     g.Name,
-		Category: g.Category,
-		Videos:   feedVideos,
-	}
-}
-
 type Video struct {
-	Name      string `json:"name"`
-	Category  string `json:"category"`
-	Gallery   string `json:"gallery"`
-	Url       string `json:"url"`
-	Thumbnail string `json:"thumbnail"`
-}
-
-type FeedVideo struct {
-	Name      string `json:"name"`
-	Url       string `json:"url"`
-	Thumbnail string `json:"thumbnail"`
+	Name      string  `json:"name"`
+	Category  string  `json:"-"`
+	Gallery   string  `json:"-"`
+	Url       string  `json:"url"`
+	Thumbnail *string `json:"thumbnail,omitempty"`
 }
 
 type Index struct {
@@ -218,7 +189,7 @@ func getVideos() []Video {
 							Category:  video.Category,
 							Gallery:   video.Gallery,
 							Url:       video.Url,
-							Thumbnail: signedUrl,
+							Thumbnail: &signedUrl,
 						}
 					}
 				}
@@ -254,14 +225,9 @@ func feedHandler(w http.ResponseWriter, _ *http.Request) {
 	log.Println("Generating Feed")
 
 	galleries := getGalleries()
-	// Convert to FeedGalleries
-	var feedGalleries []FeedGallery
-	for _, gallery := range galleries {
-		feedGalleries = append(feedGalleries, gallery.ToFeedGallery())
-	}
 
 	// Convert to JSON
-	jsonString, err := json.Marshal(feedGalleries)
+	jsonString, err := json.Marshal(galleries)
 	if err != nil {
 		panic(err)
 	}

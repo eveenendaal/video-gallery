@@ -115,8 +115,6 @@ Like I said in the summary, this application can run in Cloud Run for essentiall
 ### Cloud Run
 To get started, simply copy the [docker image](ghcr.io/eveenendaal/video-gallery) to your artifact repository in GCP and start up the image in cloud run. You'll need to configure the application with a service account that has read access to your storage bucket. Next, you'll need to define the following environmental variables.
 
-**GCLOUD_PROJECT** - The project id you're running the application in. This is needed to build the storage client.
-
 **BUCKET_NAME** - The bucket with the video files. This is needed to access the bucket.
 
 **SECRET_KEY** - A unique string. This is used to prefix all galleries with a random string to prevent people from guessing the gallery url.

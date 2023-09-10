@@ -111,8 +111,10 @@ func getGalleries() []Gallery {
 
 func getVideos() []Video {
 	// Get Environment Variables
-	// projectId := os.Getenv("GCLOUD_PROJECT")
 	bucketName := os.Getenv("BUCKET_NAME")
+	if bucketName == "" {
+		panic("BUCKET_NAME not set")
+	}
 
 	// Initialize Cloud Storage
 	storageClient, err := storage.NewClient(context.Background())

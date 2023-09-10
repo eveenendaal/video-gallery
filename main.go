@@ -205,7 +205,7 @@ func getVideos() []Video {
 	return videos
 }
 
-func galleryHandler(w http.ResponseWriter, r *http.Request) {
+func galleryHandler(w http.ResponseWriter, _ *http.Request) {
 	template, err := pug.CompileFile("./views/index.pug", pug.Options{})
 	if err != nil {
 		panic(err)
@@ -220,7 +220,7 @@ func galleryHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func feedHandler(w http.ResponseWriter, r *http.Request) {
+func feedHandler(w http.ResponseWriter, _ *http.Request) {
 	galleries := getGalleries()
 	// Convert to JSON
 	jsonString, err := json.Marshal(galleries)

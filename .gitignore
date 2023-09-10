@@ -33,3 +33,9 @@ out
 
 # Creds
 creds.json
+
+# Styles
+public/styles.css*
+
+# Shell scripts
+start.sh

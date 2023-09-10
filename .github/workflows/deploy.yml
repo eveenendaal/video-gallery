@@ -23,32 +23,6 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  run-linters:
-    name: run-linters
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    steps:
-      - name: Check out Git repository
-        uses: actions/checkout@v3
-
-      - name: Set Node.js 18.x
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18.x
-
-      - name: Install Node.js dependencies
-        run: yarn install
-
-      - name: Run ESLint
-        run: yarn run eslint:github-action
-
-      - uses: stefanzweifel/git-auto-commit-action@v4
-        with:
-          commit_message: 'ESLint fixes'
-          commit_options: '--no-verify'
-
   build:
     runs-on: ubuntu-latest
     needs: run-linters
@@ -63,22 +37,23 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Set Node.js 18.x
-        uses: actions/setup-node@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
         with:
-          node-version: 18.x
+          node-version: '18'
+          
+      - name: Install dependencies
+        run: npm install
 
-      - name: Yarn Install
-        run: yarn install
+      - name: Build Styles
+        run: npm run build
 
-      - name: Yarn Compile Typescript
-        run: yarn run compile:ts
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '^1.21.1'
 
-      - name: Yarn Compile SCSS
-        run: yarn run compile:scss
-
-      - name: Yarn Cleanup
-        run: yarn install --production
+      - name: Build Backend
+        run: go build
 
       - name: Log in to the Container registry
         uses: docker/login-action@v2

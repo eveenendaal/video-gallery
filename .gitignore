@@ -39,3 +39,6 @@ public/styles.css*
 
 # Shell scripts
 start.sh
+
+# Bin
+video-gallery

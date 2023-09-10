@@ -2,11 +2,15 @@ package main
 
 import (
 	"context"
+	"crypto/sha1"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -17,6 +21,7 @@ import (
 
 type Category struct {
 	Name      string
+	Stub      string
 	Galleries []Gallery
 }
 
@@ -40,7 +45,7 @@ type Index struct {
 }
 
 func getCategories() []Category {
-	categories := []Category{}
+	var categories []Category
 	for _, gallery := range getGalleries() {
 		category := gallery.Category
 		// Check if category already exists
@@ -55,6 +60,7 @@ func getCategories() []Category {
 		if !exists {
 			categories = append(categories, Category{
 				Name:      category,
+				Stub:      normalizeCategory(category),
 				Galleries: []Gallery{gallery},
 			})
 		}
@@ -62,18 +68,23 @@ func getCategories() []Category {
 	return categories
 }
 
-func getGallery(stub string) (Gallery, error) {
+func getGallery(path string) (Gallery, error) {
+	// Get second part of path
+	println(path)
+	parts := strings.Split(path, "/")
+	stub := parts[2]
+	// Get gallery
 	for _, gallery := range getGalleries() {
-		if gallery.Stub == strings.ToLower(stub) {
+		if gallery.Stub == stub {
 			return gallery, nil
 		}
 	}
-	return Gallery{}, fmt.Errorf("Gallery not found")
+	return Gallery{}, fmt.Errorf("gallery not found")
 }
 
 func getGalleries() []Gallery {
 	videos := getVideos()
-	galleries := []Gallery{}
+	var galleries []Gallery
 	for _, video := range videos {
 		category := video.Category
 		gallery := video.Gallery
@@ -87,10 +98,15 @@ func getGalleries() []Gallery {
 			}
 		}
 		if !exists {
+			// Generate Hash
+			hash := sha1.New()
+			hash.Write([]byte(gallery))
+			secretKey := base64.URLEncoding.EncodeToString(hash.Sum(nil))[0:4]
+
 			galleries = append(galleries, Gallery{
 				Name:     gallery,
 				Category: category,
-				Stub:     "/gallery/" + strings.ToLower(gallery),
+				Stub:     "/gallery/" + secretKey,
 				Videos:   []Video{video},
 			})
 		}
@@ -101,8 +117,7 @@ func getGalleries() []Gallery {
 func getVideos() []Video {
 	// Get Environment Variables
 	// projectId := os.Getenv("GCLOUD_PROJECT")
-	bucketName := "veenendaal-videos-demo" // bucketName := os.Getenv("BUCKET_NAME")
-	// secretKey := os.Getenv("SECRET_KEY")
+	bucketName := os.Getenv("BUCKET_NAME")
 
 	// Initialize Cloud Storage
 	storageClient, err := storage.NewClient(context.Background())
@@ -112,7 +127,7 @@ func getVideos() []Video {
 
 	bucket := storageClient.Bucket(bucketName)
 	files := bucket.Objects(context.Background(), nil)
-	videos := []Video{}
+	var videos []Video
 
 	// Allowed Extensions
 	videoExtensions := []string{".mp4", ".m4v", ".webm", ".mov", ".avi"}
@@ -121,7 +136,7 @@ func getVideos() []Video {
 	// Iterate through videos
 	for {
 		file, err := files.Next()
-		if err == iterator.Done {
+		if errors.Is(err, iterator.Done) {
 			break
 		}
 		if err != nil {
@@ -147,7 +162,6 @@ func getVideos() []Video {
 				name := strings.TrimRight(filename, extension)
 
 				if strings.HasSuffix(filename, extension) {
-					println("Video: " + filename)
 					found := false
 					for _, next := range videos {
 						if next.Name == name {
@@ -195,6 +209,13 @@ func getVideos() []Video {
 	return videos
 }
 
+func normalizeCategory(category string) string {
+	category = strings.ReplaceAll(strings.ToLower(category), " ", "-")
+	regex, _ := regexp.Compile("[^a-zA-Z0-9-_]")
+	category = regex.ReplaceAllString(category, "")
+	return strings.ToLower(category)
+}
+
 func galleryHandler(w http.ResponseWriter, r *http.Request) {
 	template, err := pug.CompileFile("./views/index.pug", pug.Options{})
 	if err != nil {
@@ -225,7 +246,7 @@ func feedHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handlePage(w http.ResponseWriter, r *http.Request) {
+func pageHandler(w http.ResponseWriter, r *http.Request) {
 	// Get path
 	path := r.URL.String()
 	println(path)
@@ -248,12 +269,17 @@ func handlePage(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	secretKey := os.Getenv("SECRET_KEY")
+	if secretKey == "" {
+		panic("SECRET_KEY not set")
+	}
+	println(secretKey)
 	// Service
 	fileServer := http.FileServer(http.Dir("./public"))
 	http.Handle("/", fileServer)
-	http.HandleFunc("/gallery", galleryHandler)
-	http.HandleFunc("/gallery/", handlePage)
-	http.HandleFunc("/feed", feedHandler)
+	http.HandleFunc("/gallery/", pageHandler)
+	http.HandleFunc("/"+secretKey+"/index", galleryHandler)
+	http.HandleFunc("/"+secretKey+"/feed", feedHandler)
 
 	// Read Environment Variables
 	port := os.Getenv("PORT")

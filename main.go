@@ -16,6 +16,7 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/eknkc/pug"
+	"github.com/patrickmn/go-cache"
 	"google.golang.org/api/iterator"
 )
 
@@ -112,7 +113,17 @@ func getGalleries() []Gallery {
 	return galleries
 }
 
+var videoCache = cache.New(5*time.Minute, 10*time.Minute)
+
 func getVideos() []Video {
+
+	// Check if Videos are cached
+	if cachedVideos, found := videoCache.Get("videos"); found {
+		log.Println("Using Cached Videos")
+		return cachedVideos.([]Video)
+	}
+	log.Println("Getting Videos")
+
 	// Get Environment Variables
 	bucketName := os.Getenv("BUCKET_NAME")
 	if bucketName == "" {
@@ -201,6 +212,9 @@ func getVideos() []Video {
 	for _, video := range videosMap {
 		videos = append(videos, video)
 	}
+
+	// Cache Videos
+	videoCache.Set("videos", videos, 5*time.Minute)
 	return videos
 }
 

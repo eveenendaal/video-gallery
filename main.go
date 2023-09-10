@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -31,10 +32,39 @@ type Gallery struct {
 	Videos   []Video `json:"videos"`
 }
 
+type FeedGallery struct {
+	Name     string      `json:"name"`
+	Category string      `json:"category"`
+	Videos   []FeedVideo `json:"videos"`
+}
+
+// ToFeedGallery Convert Gallery to FeedGallery
+func (g Gallery) ToFeedGallery() FeedGallery {
+	var feedVideos []FeedVideo
+	for _, video := range g.Videos {
+		feedVideos = append(feedVideos, FeedVideo{
+			Name:      video.Name,
+			Url:       video.Url,
+			Thumbnail: video.Thumbnail,
+		})
+	}
+	return FeedGallery{
+		Name:     g.Name,
+		Category: g.Category,
+		Videos:   feedVideos,
+	}
+}
+
 type Video struct {
 	Name      string `json:"name"`
 	Category  string `json:"category"`
 	Gallery   string `json:"gallery"`
+	Url       string `json:"url"`
+	Thumbnail string `json:"thumbnail"`
+}
+
+type FeedVideo struct {
+	Name      string `json:"name"`
 	Url       string `json:"url"`
 	Thumbnail string `json:"thumbnail"`
 }
@@ -79,6 +109,8 @@ func getGallery(stub string) (Gallery, error) {
 
 func getGalleries() []Gallery {
 	videos := getVideos()
+	secretKey := os.Getenv("SECRET_KEY")
+
 	var galleries []Gallery
 	for _, video := range videos {
 		category := video.Category
@@ -95,7 +127,7 @@ func getGalleries() []Gallery {
 		if !exists {
 			// Generate Hash
 			hash := sha1.New()
-			hash.Write([]byte(gallery))
+			hash.Write([]byte(gallery + secretKey))
 			secretKey := base64.URLEncoding.EncodeToString(hash.Sum(nil))[0:4]
 
 			galleries = append(galleries, Gallery{
@@ -124,11 +156,12 @@ func getVideos() []Video {
 
 	bucket := storageClient.Bucket(bucketName)
 	files := bucket.Objects(context.Background(), nil)
-	var videos []Video
+	videosMap := make(map[string]Video)
 
 	// Allowed Extensions
 	videoExtensions := []string{".mp4", ".m4v", ".webm", ".mov", ".avi"}
 	imageExtensions := []string{".jpg", ".jpeg", ".png"}
+	extensionRegex, _ := regexp.Compile(`\.[a-zA-Z0-9]+$`)
 
 	// Iterate through videos
 	for {
@@ -142,6 +175,8 @@ func getVideos() []Video {
 
 		parts := strings.Split(file.Name, "/")
 		if len(parts) == 3 && parts[2] != "" {
+			println("Filename: " + file.Name)
+
 			category := parts[0]
 			gallery := parts[1]
 			filename := parts[2]
@@ -153,54 +188,50 @@ func getVideos() []Video {
 			if err != nil {
 				log.Fatal(err)
 			}
+			// Remove extension from filename
+			fileBase := extensionRegex.ReplaceAll([]byte(filename), []byte(""))
 
-			// Check if video
-			for _, extension := range videoExtensions {
-				name := strings.TrimRight(filename, extension)
-
-				if strings.HasSuffix(filename, extension) {
-					found := false
-					for _, next := range videos {
-						if next.Name == name {
-							found = true
-							next.Url = signedUrl
-						}
-					}
-					if !found {
-						videos = append(videos, Video{
-							Name:      name,
-							Category:  category,
-							Gallery:   gallery,
-							Url:       signedUrl,
-							Thumbnail: "",
-						})
-					}
+			// If Video doesn't exist
+			if _, ok := videosMap[string(fileBase)]; !ok {
+				println("Creating Video: " + string(fileBase))
+				videosMap[string(fileBase)] = Video{
+					Name:     string(fileBase),
+					Category: category,
+					Gallery:  gallery,
 				}
 			}
 
-			for _, extension := range imageExtensions {
-				name := strings.TrimRight(filename, extension)
-
-				if strings.HasSuffix(filename, extension) {
-					found := false
-					for _, next := range videos {
-						if next.Name == name {
-							found = true
-							next.Thumbnail = signedUrl
+			// Check if video already exists
+			if video, ok := videosMap[string(fileBase)]; ok {
+				for _, extension := range videoExtensions {
+					if strings.HasSuffix(filename, extension) {
+						videosMap[string(fileBase)] = Video{
+							Name:      video.Name,
+							Category:  video.Category,
+							Gallery:   video.Gallery,
+							Url:       signedUrl,
+							Thumbnail: video.Thumbnail,
 						}
 					}
-					if !found {
-						videos = append(videos, Video{
-							Name:      strings.TrimRight(filename, extension),
-							Category:  category,
-							Gallery:   gallery,
-							Url:       "",
+				}
+				for _, extension := range imageExtensions {
+					if strings.HasSuffix(filename, extension) {
+						videosMap[string(fileBase)] = Video{
+							Name:      video.Name,
+							Category:  video.Category,
+							Gallery:   video.Gallery,
+							Url:       video.Url,
 							Thumbnail: signedUrl,
-						})
+						}
 					}
 				}
 			}
 		}
+	}
+	// Convert Map to Array
+	var videos []Video
+	for _, video := range videosMap {
+		videos = append(videos, video)
 	}
 	return videos
 }
@@ -226,8 +257,14 @@ func feedHandler(w http.ResponseWriter, _ *http.Request) {
 	log.Println("Generating Feed")
 
 	galleries := getGalleries()
+	// Convert to FeedGalleries
+	var feedGalleries []FeedGallery
+	for _, gallery := range galleries {
+		feedGalleries = append(feedGalleries, gallery.ToFeedGallery())
+	}
+
 	// Convert to JSON
-	jsonString, err := json.Marshal(galleries)
+	jsonString, err := json.Marshal(feedGalleries)
 	if err != nil {
 		panic(err)
 	}

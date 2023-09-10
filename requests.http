@@ -1,2 +1,2 @@
 ### Get Feed
-GET http://localhost:8080/feed
+GET http://localhost:8080/asdf/feed

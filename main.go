@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/patrickmn/go-cache"
 	"log"
 	"net/http"
 	"os"
@@ -16,7 +17,6 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/eknkc/pug"
-	"github.com/patrickmn/go-cache"
 	"google.golang.org/api/iterator"
 )
 
@@ -257,12 +257,13 @@ func pageHandler(w http.ResponseWriter, r *http.Request) {
 	// Get path
 	path := r.URL.String()
 
-	log.Println("Generating Gallery Page: " + path)
-
 	gallery, err := getGallery(path)
 	if err != nil {
-		panic(err)
+		log.Println("Gallery not found: " + path)
+		http.NotFound(w, r)
+		return
 	}
+	log.Println("Generating Gallery Page: " + path)
 
 	template, err := pug.CompileFile("./views/gallery.pug", pug.Options{})
 	if err != nil {

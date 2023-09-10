@@ -10,7 +10,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"regexp"
 	"strings"
 	"time"
 
@@ -20,24 +19,24 @@ import (
 )
 
 type Category struct {
-	Name      string
-	Stub      string
-	Galleries []Gallery
+	Name      string    `json:"name"`
+	Stub      string    `json:"stub"`
+	Galleries []Gallery `json:"galleries"`
 }
 
 type Gallery struct {
-	Name     string
-	Category string
-	Stub     string
-	Videos   []Video
+	Name     string  `json:"name"`
+	Category string  `json:"category"`
+	Stub     string  `json:"stub"`
+	Videos   []Video `json:"videos"`
 }
 
 type Video struct {
-	Name      string
-	Category  string
-	Gallery   string
-	Url       string
-	Thumbnail string
+	Name      string `json:"name"`
+	Category  string `json:"category"`
+	Gallery   string `json:"gallery"`
+	Url       string `json:"url"`
+	Thumbnail string `json:"thumbnail"`
 }
 
 type Index struct {
@@ -60,7 +59,7 @@ func getCategories() []Category {
 		if !exists {
 			categories = append(categories, Category{
 				Name:      category,
-				Stub:      normalizeCategory(category),
+				Stub:      category,
 				Galleries: []Gallery{gallery},
 			})
 		}
@@ -68,11 +67,7 @@ func getCategories() []Category {
 	return categories
 }
 
-func getGallery(path string) (Gallery, error) {
-	// Get second part of path
-	println(path)
-	parts := strings.Split(path, "/")
-	stub := parts[2]
+func getGallery(stub string) (Gallery, error) {
 	// Get gallery
 	for _, gallery := range getGalleries() {
 		if gallery.Stub == stub {
@@ -185,7 +180,6 @@ func getVideos() []Video {
 				name := strings.TrimRight(filename, extension)
 
 				if strings.HasSuffix(filename, extension) {
-					println("Image: " + filename)
 					found := false
 					for _, next := range videos {
 						if next.Name == name {
@@ -207,13 +201,6 @@ func getVideos() []Video {
 		}
 	}
 	return videos
-}
-
-func normalizeCategory(category string) string {
-	category = strings.ReplaceAll(strings.ToLower(category), " ", "-")
-	regex, _ := regexp.Compile("[^a-zA-Z0-9-_]")
-	category = regex.ReplaceAllString(category, "")
-	return strings.ToLower(category)
 }
 
 func galleryHandler(w http.ResponseWriter, r *http.Request) {
@@ -249,7 +236,6 @@ func feedHandler(w http.ResponseWriter, r *http.Request) {
 func pageHandler(w http.ResponseWriter, r *http.Request) {
 	// Get path
 	path := r.URL.String()
-	println(path)
 	gallery, err := getGallery(path)
 	if err != nil {
 		panic(err)
@@ -260,9 +246,7 @@ func pageHandler(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 
-	println(gallery.Name)
 	err = template.Execute(w, gallery)
-
 	if err != nil {
 		panic(err)
 	}
@@ -273,7 +257,6 @@ func main() {
 	if secretKey == "" {
 		panic("SECRET_KEY not set")
 	}
-	println(secretKey)
 	// Service
 	fileServer := http.FileServer(http.Dir("./public"))
 	http.Handle("/", fileServer)

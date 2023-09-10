@@ -175,8 +175,6 @@ func getVideos() []Video {
 
 		parts := strings.Split(file.Name, "/")
 		if len(parts) == 3 && parts[2] != "" {
-			println("Filename: " + file.Name)
-
 			category := parts[0]
 			gallery := parts[1]
 			filename := parts[2]
@@ -193,7 +191,6 @@ func getVideos() []Video {
 
 			// If Video doesn't exist
 			if _, ok := videosMap[string(fileBase)]; !ok {
-				println("Creating Video: " + string(fileBase))
 				videosMap[string(fileBase)] = Video{
 					Name:     string(fileBase),
 					Category: category,

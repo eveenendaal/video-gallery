@@ -206,6 +206,8 @@ func getVideos() []Video {
 }
 
 func galleryHandler(w http.ResponseWriter, _ *http.Request) {
+	log.Println("Generating Index")
+
 	template, err := pug.CompileFile("./views/index.pug", pug.Options{})
 	if err != nil {
 		panic(err)
@@ -221,6 +223,8 @@ func galleryHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 func feedHandler(w http.ResponseWriter, _ *http.Request) {
+	log.Println("Generating Feed")
+
 	galleries := getGalleries()
 	// Convert to JSON
 	jsonString, err := json.Marshal(galleries)
@@ -238,6 +242,9 @@ func feedHandler(w http.ResponseWriter, _ *http.Request) {
 func pageHandler(w http.ResponseWriter, r *http.Request) {
 	// Get path
 	path := r.URL.String()
+
+	log.Println("Generating Gallery Page: " + path)
+
 	gallery, err := getGallery(path)
 	if err != nil {
 		panic(err)
@@ -259,6 +266,8 @@ func main() {
 	if secretKey == "" {
 		panic("SECRET_KEY not set")
 	}
+	log.Println("Starting with Key: " + secretKey)
+
 	// Service
 	fileServer := http.FileServer(http.Dir("./public"))
 	http.Handle("/", fileServer)

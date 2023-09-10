@@ -2,8 +2,8 @@
   "name": "video-gallery",
   "version": "1.0.0",
   "description": "The goal of this project is to build a serverless ready application for displaying a users video content library using only a single storage bucket.",
-  "author": "",
-  "license": "ISC",
+  "author": "Eric Veenendaal",
+  "license": "GPL-3.0",
   "scripts": {
     "build": "sass scss/styles.scss public/styles.css"
   },

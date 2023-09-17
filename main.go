@@ -116,7 +116,6 @@ func getGalleries() []Gallery {
 var videoCache = cache.New(5*time.Minute, 10*time.Minute)
 
 func getVideos() []Video {
-
 	// Check if Videos are cached
 	if cachedVideos, found := videoCache.Get("videos"); found {
 		log.Println("Using Cached Videos")
@@ -214,7 +213,7 @@ func getVideos() []Video {
 	}
 
 	// Cache Videos
-	videoCache.Set("videos", videos, 5*time.Minute)
+	videoCache.Set("videos", videos, cache.DefaultExpiration)
 	return videos
 }
 

@@ -3,7 +3,7 @@ module video-gallery
 go 1.21.1
 
 require (
-	cloud.google.com/go/storage v1.33.0
+	cloud.google.com/go/storage v1.34.1
 	github.com/eknkc/pug v0.0.0-20180224090515-607e1323ff9d
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	google.golang.org/api v0.149.0

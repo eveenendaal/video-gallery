@@ -2,16 +2,16 @@
   "image": "mcr.microsoft.com/devcontainers/universal:2",
   "features": {
     "ghcr.io/dhoeric/features/google-cloud-cli:1": {},
-    "ghcr.io/devcontainers/features/go:1": {
-      "version": "1.21.1"
-    }
+    "ghcr.io/devcontainers/features/go:1": {},
+    "ghcr.io/eitsupi/devcontainer-features/go-task:latest": {}
   },
   "customizations": {
     "vscode": {
       "extensions": [
         "GitHub.copilot",
         "googlecloudtools.cloudcode",
-        "ms-azuretools.vscode-docker"
+        "ms-azuretools.vscode-docker",
+        "task.vscode-task"
       ]
     }
   },

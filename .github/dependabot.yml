@@ -23,3 +23,7 @@ updates:
       - "eveenendaal"
     schedule:
       interval: "weekly"
+  - package-ecosystem: "devcontainers"
+    directory: "/"
+    schedule:
+      interval: weekly

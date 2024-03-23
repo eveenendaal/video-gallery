@@ -10,20 +10,22 @@ updates:
     assignees:
       - "eveenendaal"
     schedule:
-      interval: "weekly"
+      interval: weekly
   - package-ecosystem: "github-actions"
     directory: "/"
     assignees:
       - "eveenendaal"
     schedule:
-      interval: "weekly"
+      interval: weekly
   - package-ecosystem: "docker"
     directory: "/"
     assignees:
       - "eveenendaal"
     schedule:
-      interval: "weekly"
+      interval: weekly
   - package-ecosystem: "devcontainers"
     directory: "/"
+    assignees:
+      - "eveenendaal"
     schedule:
       interval: weekly

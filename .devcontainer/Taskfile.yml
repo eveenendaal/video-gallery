@@ -1,7 +1,0 @@
-version: '3'
-
-tasks:
-  login_gcp:
-    desc: Login to GCP
-    cmds:
-      - gcloud auth login --update-adc --no-launch-browser

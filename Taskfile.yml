@@ -1,5 +1,6 @@
 version: '3'
 
 includes:
-  dev: .devcontainer
-
+  shared:
+    taskfile: ~/.tasks/Taskfile.yml
+    optional: true

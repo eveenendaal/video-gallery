@@ -1,0 +1,23 @@
+name: Auto merge Dependabot updates
+on:
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+  check_suite:
+    types:
+      - completed
+
+jobs:
+  auto-merge:
+    needs: check-status
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]'
+    steps:
+      - name: Auto merge Dependabot updates
+        uses: ahmadnassri/action-dependabot-auto-merge@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          approve: true

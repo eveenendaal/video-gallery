@@ -12,7 +12,7 @@ updates:
     schedule:
       interval: weekly
       day: saturday
-      time: "06:00"
+      time: "04:00"
       timezone: "Europe/Amsterdam"
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -21,7 +21,7 @@ updates:
     schedule:
       interval: weekly
       day: saturday
-      time: "06:00"
+      time: "04:00"
       timezone: "Europe/Amsterdam"
   - package-ecosystem: "docker"
     directory: "/"
@@ -30,7 +30,7 @@ updates:
     schedule:
       interval: weekly
       day: saturday
-      time: "06:00"
+      time: "04:00"
       timezone: "Europe/Amsterdam"
   - package-ecosystem: "devcontainers"
     directory: "/"
@@ -39,5 +39,5 @@ updates:
     schedule:
       interval: weekly
       day: saturday
-      time: "06:00"
+      time: "04:00"
       timezone: "Europe/Amsterdam"

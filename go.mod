@@ -1,7 +1,8 @@
 module video-gallery
 
-go 1.21.1
-toolchain go1.23.7
+go 1.23.0
+
+toolchain go1.24.1
 
 require (
 	cloud.google.com/go/storage v1.48.0

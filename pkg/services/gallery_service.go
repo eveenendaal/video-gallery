@@ -9,9 +9,11 @@ import (
 	"log"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 	"video-gallery/pkg/config"
 
 	"cloud.google.com/go/storage"
@@ -26,6 +28,58 @@ type Service struct {
 	config     *config.Config
 	videoCache *cache.Cache
 	mu         sync.RWMutex
+}
+
+// naturalLess compares strings in a way that treats numbers as numbers rather than characters
+// For example: "file2" < "file10" when using naturalLess
+func naturalLess(s1, s2 string) bool {
+	i, j := 0, 0
+	for i < len(s1) && j < len(s2) {
+		// Skip leading spaces
+		for i < len(s1) && unicode.IsSpace(rune(s1[i])) {
+			i++
+		}
+		for j < len(s2) && unicode.IsSpace(rune(s2[j])) {
+			j++
+		}
+
+		// If we reached the end of either string
+		if i >= len(s1) || j >= len(s2) {
+			break
+		}
+
+		// If both characters are digits, compare the numbers
+		if unicode.IsDigit(rune(s1[i])) && unicode.IsDigit(rune(s2[j])) {
+			// Extract consecutive digits
+			var num1, num2 string
+			for i < len(s1) && unicode.IsDigit(rune(s1[i])) {
+				num1 += string(s1[i])
+				i++
+			}
+			for j < len(s2) && unicode.IsDigit(rune(s2[j])) {
+				num2 += string(s2[j])
+				j++
+			}
+
+			// Convert to integers and compare
+			n1, _ := strconv.Atoi(num1)
+			n2, _ := strconv.Atoi(num2)
+			if n1 != n2 {
+				return n1 < n2
+			}
+			// If numbers are equal, continue to next characters
+		} else {
+			// Compare characters
+			if s1[i] != s2[j] {
+				return s1[i] < s2[j]
+			}
+			i++
+			j++
+		}
+	}
+
+	// If we've reached the end of one string but not the other
+	return len(s1) < len(s2)
 }
 
 var (
@@ -121,15 +175,15 @@ func (s *Service) GetGalleriesInternal() []models.Gallery {
 		}
 	}
 
-	// Convert map to slice
+	// Convert the map to slice
 	galleries := make([]models.Gallery, 0, len(galleryMap))
 	for _, gallery := range galleryMap {
 		galleries = append(galleries, *gallery)
 	}
 
-	// Sort galleries alphabetically by name
+	// Sort galleries alphabetically by name with natural sorting for numbers
 	sort.Slice(galleries, func(i, j int) bool {
-		return galleries[i].Name < galleries[j].Name
+		return naturalLess(galleries[i].Name, galleries[j].Name)
 	})
 
 	return galleries
@@ -212,7 +266,7 @@ func (s *Service) GetVideosInternal() []models.Video {
 		// Remove extension from the filename
 		fileBase := string(extensionRegex.ReplaceAllString(filename, ""))
 
-		// Initialize video if it doesn't exist
+		// Initialize a video if it doesn't exist
 		if _, ok := videosMap[fileBase]; !ok {
 			videosMap[fileBase] = models.Video{
 				Name:     fileBase,
@@ -224,7 +278,7 @@ func (s *Service) GetVideosInternal() []models.Video {
 		// Update video with URL or thumbnail
 		video := videosMap[fileBase]
 
-		// Check if file is a video
+		// Check if a file is a video
 		for _, ext := range videoExtensions {
 			if strings.HasSuffix(filename, ext) {
 				video.Url = signedURL
@@ -249,9 +303,9 @@ func (s *Service) GetVideosInternal() []models.Video {
 		videos = append(videos, video)
 	}
 
-	// Sort videos alphabetically by name
+	// Sort videos alphabetically by name with natural sorting for numbers
 	sort.Slice(videos, func(i, j int) bool {
-		return videos[i].Name < videos[j].Name
+		return naturalLess(videos[i].Name, videos[j].Name)
 	})
 
 	// Cache videos

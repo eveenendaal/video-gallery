@@ -17,7 +17,9 @@ func GalleryHandler(w http.ResponseWriter, _ *http.Request) {
 
 	template, err := pug.CompileFile("./views/index.pug", pug.Options{})
 	if err != nil {
-		panic(err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		log.Printf("Template error: %v", err)
+		return
 	}
 
 	err = template.Execute(w, models.Index{
@@ -25,7 +27,9 @@ func GalleryHandler(w http.ResponseWriter, _ *http.Request) {
 	})
 
 	if err != nil {
-		panic(err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		log.Printf("Template execution error: %v", err)
+		return
 	}
 }
 
@@ -36,15 +40,17 @@ func FeedHandler(w http.ResponseWriter, _ *http.Request) {
 	galleries := services.GetGalleries()
 
 	// Convert to JSON
-	jsonString, err := json.Marshal(galleries)
+	jsonData, err := json.Marshal(galleries)
 	if err != nil {
-		panic(err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		log.Printf("JSON marshaling error: %v", err)
+		return
 	}
+
 	// Write JSON
 	w.Header().Set("Content-Type", "application/json")
-	_, err = w.Write(jsonString)
-	if err != nil {
-		return
+	if _, err = w.Write(jsonData); err != nil {
+		log.Printf("Error writing response: %v", err)
 	}
 }
 
@@ -55,19 +61,22 @@ func PageHandler(w http.ResponseWriter, r *http.Request) {
 
 	gallery, err := services.GetGallery(path)
 	if err != nil {
-		log.Println("Gallery not found: " + path)
+		log.Printf("Gallery not found: %s", path)
 		http.NotFound(w, r)
 		return
 	}
-	log.Println("Generating Gallery Page: " + path)
+	log.Printf("Generating Gallery Page: %s", path)
 
 	template, err := pug.CompileFile("./views/gallery.pug", pug.Options{})
 	if err != nil {
-		panic(err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		log.Printf("Template error: %v", err)
+		return
 	}
 
-	err = template.Execute(w, gallery)
-	if err != nil {
-		panic(err)
+	if err = template.Execute(w, gallery); err != nil {
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		log.Printf("Template execution error: %v", err)
+		return
 	}
 }

@@ -1,8 +1,8 @@
 package config
 
 import (
+	"errors"
 	"fmt"
-	"log"
 	"os"
 )
 
@@ -13,17 +13,22 @@ type Config struct {
 	Port       string
 }
 
+// ErrSecretKeyNotSet is returned when the SECRET_KEY environment variable is not set
+var ErrSecretKeyNotSet = errors.New("SECRET_KEY environment variable not set")
+
+// ErrBucketNameNotSet is returned when the BUCKET_NAME environment variable is not set
+var ErrBucketNameNotSet = errors.New("BUCKET_NAME environment variable not set")
+
 // Load loads configuration from environment variables
-func Load() *Config {
+func Load() (*Config, error) {
 	secretKey := os.Getenv("SECRET_KEY")
 	if secretKey == "" {
-		panic("SECRET_KEY not set")
+		return nil, ErrSecretKeyNotSet
 	}
-	log.Println("Starting with Key: " + secretKey)
 
 	bucketName := os.Getenv("BUCKET_NAME")
 	if bucketName == "" {
-		panic("BUCKET_NAME not set")
+		return nil, ErrBucketNameNotSet
 	}
 
 	port := os.Getenv("PORT")
@@ -35,27 +40,12 @@ func Load() *Config {
 		SecretKey:  secretKey,
 		BucketName: bucketName,
 		Port:       port,
-	}
+	}, nil
 }
 
-// GetSecretKey returns the secret key
-func (c *Config) GetSecretKey() string {
-	return c.SecretKey
-}
-
-// GetBucketName returns the bucket name
-func (c *Config) GetBucketName() string {
-	return c.BucketName
-}
-
-// GetPort returns the port
-func (c *Config) GetPort() string {
-	return c.Port
-}
-
-// GetServerAddress returns the server address with port
-func (c *Config) GetServerAddress() string {
-	return ":" + c.Port
+// ServerAddress returns the server address with port
+func (c *Config) ServerAddress() string {
+	return fmt.Sprintf(":%s", c.Port)
 }
 
 // PrintServerStartMessage prints a message when the server starts

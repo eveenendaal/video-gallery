@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 	"video-gallery/pkg/config"
 
@@ -20,176 +21,230 @@ import (
 	"video-gallery/pkg/models"
 )
 
-var videoCache = cache.New(5*time.Minute, 10*time.Minute)
-var appConfig *config.Config
+// Service handles operations related to galleries and videos
+type Service struct {
+	config     *config.Config
+	videoCache *cache.Cache
+	mu         sync.RWMutex
+}
+
+var (
+	// defaultService is the singleton instance of Service
+	defaultService *Service
+	once           sync.Once
+)
 
 // InitService initializes the service with the given configuration
 func InitService(cfg *config.Config) {
-	appConfig = cfg
+	once.Do(func() {
+		defaultService = &Service{
+			config:     cfg,
+			videoCache: cache.New(5*time.Minute, 10*time.Minute),
+		}
+	})
 }
 
 // GetCategories returns all categories with their galleries
 func GetCategories() []models.Category {
-	var categories []models.Category
-	for _, gallery := range GetGalleries() {
-		category := gallery.Category
-		// Check if a category already exists
-		exists := false
-		for i, c := range categories {
-			if c.Name == category {
-				categories[i].Galleries = append(categories[i].Galleries, gallery)
-				exists = true
-				break
+	return defaultService.GetCategoriesInternal()
+}
+
+// GetCategoriesInternal returns all categories with their galleries
+func (s *Service) GetCategoriesInternal() []models.Category {
+	galleries := s.GetGalleriesInternal()
+	categoryMap := make(map[string]*models.Category)
+
+	for _, gallery := range galleries {
+		categoryName := gallery.Category
+		if cat, exists := categoryMap[categoryName]; exists {
+			cat.Galleries = append(cat.Galleries, gallery)
+		} else {
+			categoryMap[categoryName] = &models.Category{
+				Name:      categoryName,
+				Stub:      categoryName,
+				Galleries: []models.Gallery{gallery},
 			}
 		}
-		if !exists {
-			categories = append(categories, models.Category{
-				Name:      category,
-				Stub:      category,
-				Galleries: []models.Gallery{gallery},
-			})
-		}
 	}
+
+	// Convert map to slice
+	categories := make([]models.Category, 0, len(categoryMap))
+	for _, category := range categoryMap {
+		categories = append(categories, *category)
+	}
+
 	return categories
 }
 
 // GetGallery returns a gallery by its stub
 func GetGallery(stub string) (models.Gallery, error) {
-	// Get gallery
-	for _, gallery := range GetGalleries() {
+	return defaultService.GetGalleryInternal(stub)
+}
+
+// GetGalleryInternal returns a gallery by its stub
+func (s *Service) GetGalleryInternal(stub string) (models.Gallery, error) {
+	galleries := s.GetGalleriesInternal()
+	for _, gallery := range galleries {
 		if gallery.Stub == stub {
 			return gallery, nil
 		}
 	}
-	return models.Gallery{}, fmt.Errorf("gallery not found")
+	return models.Gallery{}, fmt.Errorf("gallery not found: %s", stub)
 }
 
 // GetGalleries returns all galleries with their videos
 func GetGalleries() []models.Gallery {
-	videos := GetVideos()
-	secretKey := appConfig.GetSecretKey()
+	return defaultService.GetGalleriesInternal()
+}
 
-	var galleries []models.Gallery
+// GetGalleriesInternal returns all galleries with their videos
+func (s *Service) GetGalleriesInternal() []models.Gallery {
+	videos := s.GetVideosInternal()
+	galleryMap := make(map[string]*models.Gallery)
+
 	for _, video := range videos {
-		category := video.Category
-		gallery := video.Gallery
-		// Check if gallery already exists
-		exists := false
-		for i, g := range galleries {
-			if g.Name == gallery {
-				galleries[i].Videos = append(galleries[i].Videos, video)
-				exists = true
-				break
+		galleryName := video.Gallery
+		if g, exists := galleryMap[galleryName]; exists {
+			g.Videos = append(g.Videos, video)
+		} else {
+			// Generate Hash for gallery URL
+			hash := sha1.New()
+			hash.Write([]byte(galleryName + s.config.SecretKey))
+			hashStr := base64.URLEncoding.EncodeToString(hash.Sum(nil))[0:4]
+
+			galleryMap[galleryName] = &models.Gallery{
+				Name:     galleryName,
+				Category: video.Category,
+				Stub:     fmt.Sprintf("/gallery/%s", hashStr),
+				Videos:   []models.Video{video},
 			}
 		}
-		if !exists {
-			// Generate Hash
-			hash := sha1.New()
-			hash.Write([]byte(gallery + secretKey))
-			secretKey := base64.URLEncoding.EncodeToString(hash.Sum(nil))[0:4]
-
-			galleries = append(galleries, models.Gallery{
-				Name:     gallery,
-				Category: category,
-				Stub:     "/gallery/" + secretKey,
-				Videos:   []models.Video{video},
-			})
-		}
 	}
+
+	// Convert map to slice
+	galleries := make([]models.Gallery, 0, len(galleryMap))
+	for _, gallery := range galleryMap {
+		galleries = append(galleries, *gallery)
+	}
+
+	// Sort galleries alphabetically by name
+	sort.Slice(galleries, func(i, j int) bool {
+		return galleries[i].Name < galleries[j].Name
+	})
+
 	return galleries
 }
 
 // GetVideos returns all videos from the storage bucket
 func GetVideos() []models.Video {
-	// Check if Videos are cached
-	if cachedVideos, found := videoCache.Get("videos"); found {
+	return defaultService.GetVideosInternal()
+}
+
+// GetVideosInternal returns all videos from the storage bucket
+func (s *Service) GetVideosInternal() []models.Video {
+	s.mu.RLock()
+	if cachedVideos, found := s.videoCache.Get("videos"); found {
+		s.mu.RUnlock()
 		log.Println("Using Cached Videos")
 		return cachedVideos.([]models.Video)
 	}
+	s.mu.RUnlock()
+
 	log.Println("Getting Videos")
 
-	// Get bucket name from config
-	bucketName := appConfig.GetBucketName()
+	// Create a context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// Initialize Cloud Storage
-	storageClient, err := storage.NewClient(context.Background())
+	storageClient, err := storage.NewClient(ctx)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("Failed to create storage client: %v", err)
+		return []models.Video{}
 	}
+	defer storageClient.Close()
 
-	bucket := storageClient.Bucket(bucketName)
-	files := bucket.Objects(context.Background(), nil)
+	bucket := storageClient.Bucket(s.config.BucketName)
+	it := bucket.Objects(ctx, nil)
 	videosMap := make(map[string]models.Video)
 
 	// Allowed Extensions
 	videoExtensions := []string{".mp4", ".m4v", ".webm", ".mov", ".avi"}
 	imageExtensions := []string{".jpg", ".jpeg", ".png"}
-	extensionRegex, _ := regexp.Compile(`\.[a-zA-Z0-9]+$`)
 
-	// Iterate through videos
+	// Compile regex for file extension extraction
+	extensionRegex, err := regexp.Compile(`\.[a-zA-Z0-9]+$`)
+	if err != nil {
+		log.Printf("Failed to compile regex: %v", err)
+		return []models.Video{}
+	}
+
+	// Iterate through files
 	for {
-		file, err := files.Next()
+		file, err := it.Next()
 		if errors.Is(err, iterator.Done) {
 			break
 		}
 		if err != nil {
-			log.Fatal(err)
+			log.Printf("Error iterating objects: %v", err)
+			continue
 		}
 
 		parts := strings.Split(file.Name, "/")
-		if len(parts) == 3 && parts[2] != "" {
-			category := parts[0]
-			gallery := parts[1]
-			filename := parts[2]
-			// Create a Signed 24-Hour URL
-			signedUrl, err := bucket.SignedURL(file.Name, &storage.SignedURLOptions{
-				Expires: time.Now().Add(24 * time.Hour),
-				Method:  "GET",
-			})
-			if err != nil {
-				log.Fatal(err)
-			}
-			// Remove extension from the filename
-			fileBase := extensionRegex.ReplaceAll([]byte(filename), []byte(""))
+		if len(parts) != 3 || parts[2] == "" {
+			continue
+		}
 
-			// If Video doesn't exist
-			if _, ok := videosMap[string(fileBase)]; !ok {
-				videosMap[string(fileBase)] = models.Video{
-					Name:     string(fileBase),
-					Category: category,
-					Gallery:  gallery,
-				}
-			}
+		category := parts[0]
+		gallery := parts[1]
+		filename := parts[2]
 
-			// Check if video already exists
-			if video, ok := videosMap[string(fileBase)]; ok {
-				for _, extension := range videoExtensions {
-					if strings.HasSuffix(filename, extension) {
-						videosMap[string(fileBase)] = models.Video{
-							Name:      video.Name,
-							Category:  video.Category,
-							Gallery:   video.Gallery,
-							Url:       signedUrl,
-							Thumbnail: video.Thumbnail,
-						}
-					}
-				}
-				for _, extension := range imageExtensions {
-					if strings.HasSuffix(filename, extension) {
-						videosMap[string(fileBase)] = models.Video{
-							Name:      video.Name,
-							Category:  video.Category,
-							Gallery:   video.Gallery,
-							Url:       video.Url,
-							Thumbnail: &signedUrl,
-						}
-					}
-				}
+		// Create a Signed 24-Hour URL
+		signedURL, err := bucket.SignedURL(file.Name, &storage.SignedURLOptions{
+			Expires: time.Now().Add(24 * time.Hour),
+			Method:  "GET",
+		})
+		if err != nil {
+			log.Printf("Error creating signed URL for %s: %v", file.Name, err)
+			continue
+		}
+
+		// Remove extension from the filename
+		fileBase := string(extensionRegex.ReplaceAllString(filename, ""))
+
+		// Initialize video if it doesn't exist
+		if _, ok := videosMap[fileBase]; !ok {
+			videosMap[fileBase] = models.Video{
+				Name:     fileBase,
+				Category: category,
+				Gallery:  gallery,
+			}
+		}
+
+		// Update video with URL or thumbnail
+		video := videosMap[fileBase]
+
+		// Check if file is a video
+		for _, ext := range videoExtensions {
+			if strings.HasSuffix(filename, ext) {
+				video.Url = signedURL
+				videosMap[fileBase] = video
+				break
+			}
+		}
+
+		// Check if file is an image (thumbnail)
+		for _, ext := range imageExtensions {
+			if strings.HasSuffix(filename, ext) {
+				video.Thumbnail = &signedURL
+				videosMap[fileBase] = video
+				break
 			}
 		}
 	}
-	// Convert Map to Array
-	var videos []models.Video
+
+	// Convert map to slice
+	videos := make([]models.Video, 0, len(videosMap))
 	for _, video := range videosMap {
 		videos = append(videos, video)
 	}
@@ -199,7 +254,10 @@ func GetVideos() []models.Video {
 		return videos[i].Name < videos[j].Name
 	})
 
-	// Cache Videos
-	videoCache.Set("videos", videos, cache.DefaultExpiration)
+	// Cache videos
+	s.mu.Lock()
+	s.videoCache.Set("videos", videos, cache.DefaultExpiration)
+	s.mu.Unlock()
+
 	return videos
 }

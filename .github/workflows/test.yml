@@ -1,4 +1,4 @@
-name: Video Gallery Test
+name: Test
 
 on:
   push:
@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Cache Video Gallery Cargo Dependencies
+      - name: Cache cargo
         uses: actions/cache@v3
         with:
           path: |
@@ -33,5 +33,5 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Build Video Gallery Application
+      - name: Build
         run: cargo build

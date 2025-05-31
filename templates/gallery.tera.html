@@ -1,0 +1,44 @@
+{# filepath: templates/gallery.tera.html #}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>{{ Name }}</title>
+    <link rel="stylesheet" href="/public/styles.css">
+</head>
+<body>
+<div class="header hero is-dark is-small">
+    <div class="hero-head">
+        <div class="container has-text-centered-mobile block">
+            <h1 class="title is-2">{{ Name }}</h1>
+            <h2 class="subtitle is-3">{{ Category }}</h2>
+        </div>
+    </div>
+</div>
+<div class="container">
+    <div class="videos">
+        <div class="columns is-multiline is-flex-direction-row">
+            {% for video in Videos %}
+            <div class="column is-4">
+                <div class="video has-text-centered has-border">
+                    <div class="block">
+                        {% if video.thumbnail is defined and video.thumbnail %}
+                        <a href="{{ video.url }}">
+                            <img src="{{ video.thumbnail }}" class="image m-auto"/>
+                        </a>
+                        {% else %}
+                        <a class="button is-medium is-link" href="{{ video.url }}">Play</a>
+                        {% endif %}
+                    </div>
+                    <div class="caption">
+                        <div class="subtitle is-5">{{ video.name }}</div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+</body>
+</html>
+

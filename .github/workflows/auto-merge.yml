@@ -1,4 +1,4 @@
-name: Auto merge Dependabot updates
+name: Video Gallery Auto-merge Dependabot Updates
 on:
   pull_request_target:
     types:
@@ -19,12 +19,12 @@ jobs:
     runs-on: ubuntu-latest
     if: github.actor == 'dependabot[bot]'
     steps:
-      - name: Dependabot metadata
+      - name: Get Video Gallery Dependabot Metadata
         id: metadata
         uses: dependabot/fetch-metadata@v2
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
-      - name: Enable auto-merge for Dependabot PRs
+      - name: Enable Video Gallery Auto-merge for Dependabot PRs
         run: gh pr merge --auto --merge "$PR_URL"
         env:
           PR_URL: ${{github.event.pull_request.html_url}}

@@ -1,4 +1,4 @@
-name: Deploy
+name: Video Gallery Deploy
 
 on:
   schedule:
@@ -39,18 +39,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Video Gallery Node.js Environment
         uses: actions/setup-node@v4
         with:
           node-version: '22'
 
-      - name: Install dependencies
+      - name: Install Video Gallery Dependencies
         run: npm install
 
-      - name: Build Styles
+      - name: Build Video Gallery Styles
         run: npm run build
 
-      - name: Log in to the Container registry
+      - name: Log in to Video Gallery Container Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -64,7 +64,7 @@ jobs:
           WITH_V: false
           DEFAULT_BUMP: patch
 
-      - name: Extract metadata (tags, labels) for Docker
+      - name: Extract Video Gallery Docker Metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -76,7 +76,7 @@ jobs:
             type=ref,event=pr
             type=raw,value=latest
 
-      - name: Build and push Docker image
+      - name: Build and Push Video Gallery Docker Image
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -91,7 +91,8 @@ jobs:
       packages: write
 
     steps:
-      - uses: actions/delete-package-versions@v5
+      - name: Cleanup Untagged Video Gallery Container Versions
+        uses: actions/delete-package-versions@v5
         with:
           package-name: video-gallery
           package-type: container

@@ -8,6 +8,9 @@ on:
     branches:
       - 'master'
 
+permissions:
+  contents: read # Explicitly limit permissions to read-only access to repository contents
+
 jobs:
   test:
     runs-on: ubuntu-latest

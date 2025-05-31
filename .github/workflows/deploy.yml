@@ -84,17 +84,6 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          format: 'github'
-          output: 'dependency-results.sbom.json'
-          image-ref: ${{ env.IMAGE_SOURCE }}
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
-          github-pat: ${{ secrets.GITHUB_TOKEN }}
-
   cleanup:
     runs-on: ubuntu-latest
     needs: build

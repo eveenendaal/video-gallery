@@ -8,7 +8,7 @@ require (
 	cloud.google.com/go/storage v1.54.0
 	github.com/eknkc/pug v0.0.0-20180224090515-607e1323ff9d
 	github.com/patrickmn/go-cache v2.1.0+incompatible
-	google.golang.org/api v0.234.0
+	google.golang.org/api v0.235.0
 )
 
 require (

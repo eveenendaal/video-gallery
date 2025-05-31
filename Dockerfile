@@ -4,7 +4,7 @@ WORKDIR /app
 COPY . .
 
 # Install build dependencies and build the application
-RUN apk add --no-cache musl-dev openssl-dev pkgconfig build-base openssl-libs-static && \
+RUN apk add --no-cache musl-dev openssl-dev pkgconfig build-base && \
     cargo build --release
 
 FROM alpine:latest

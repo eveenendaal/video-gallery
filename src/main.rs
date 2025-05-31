@@ -10,6 +10,11 @@ mod services;
 use crate::config::Config;
 use crate::services::Service;
 
+// Health check endpoint required by Cloud Run
+async fn health_check() -> impl Responder {
+    HttpResponse::Ok().body("OK")
+}
+
 async fn gallery_handler(
     service: web::Data<Arc<Service>>,
     tmpl: web::Data<Tera>,
@@ -64,6 +69,12 @@ async fn page_handler(
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    // Configure logging for Cloud Run
+    unsafe {
+        std::env::set_var("RUST_LOG", "info,actix_web=info");
+    }
+    env_logger::init();
+
     let config = Arc::new(Config::load().expect("Failed to load config"));
     let port = config.port.clone(); // Extract port before moving config
     let service = Arc::new(Service::new(config.clone()));
@@ -83,6 +94,8 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(service.clone()))
             .app_data(web::Data::new(tera.clone()))
             .service(fs::Files::new("/public", "public").show_files_listing())
+            // Add health check endpoint for Cloud Run
+            .route("/health", web::get().to(health_check))
             .route(
                 &format!("/{}/index", config.secret_key),
                 web::get().to(gallery_handler),
@@ -93,7 +106,8 @@ async fn main() -> std::io::Result<()> {
             )
             .route("/gallery/{stub}", web::get().to(page_handler))
     })
-    .bind(format!("0.0.0.0:{}", port))? // Use extracted port
+    .bind(format!("0.0.0.0:{}", port))?
+    .workers(2) // Limit workers to reduce memory usage
     .run()
     .await
 }

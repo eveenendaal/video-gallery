@@ -47,13 +47,6 @@ jobs:
       - name: Build Styles
         run: npm run build
 
-      - uses: actions/setup-go@v5
-        with:
-          go-version: 'stable'
-
-      - name: Build Backend
-        run: GOOS=linux go build -o video-gallery ./bin/serve
-
       - name: Log in to the Container registry
         uses: docker/login-action@v3
         with:

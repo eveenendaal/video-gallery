@@ -51,7 +51,6 @@ func (c *Config) ServerAddress() string {
 // PrintServerStartMessage prints a message when the server starts
 func (c *Config) PrintServerStartMessage() {
 	fmt.Printf("Starting server at port %s\n", c.Port)
-	fmt.Printf("Access the application at: http://localhost:%s\n", c.Port)
-	fmt.Printf("Gallery URL: http://localhost:%s/gallery/\n", c.Port)
-	fmt.Printf("Admin URL: http://localhost:%s/%s/index\n", c.Port, c.SecretKey)
+	fmt.Printf("Gallery URL: http://localhost:%s/%s/index\n", c.Port, c.SecretKey)
+	fmt.Printf("Feed URL: http://localhost:%s/%s/feed\n", c.Port, c.SecretKey)
 }

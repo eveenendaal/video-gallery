@@ -33,4 +33,4 @@ COPY --from=builder --chmod=644 /build/views /app/views
 COPY --from=builder --chmod=644 /build/public /app/public
 
 # Run the application
-CMD ["/app/video-gallery"]
+CMD ["/app/video-gallery", "serve"]

@@ -33,6 +33,7 @@ stored in Google Cloud Storage. It can also serve these galleries via a web inte
 	rootCmd.AddCommand(newShowGalleryCmd())
 	rootCmd.AddCommand(newExportCmd())
 	rootCmd.AddCommand(newServeCmd())
+	rootCmd.AddCommand(newGenerateThumbnailsCmd())
 
 	return rootCmd
 }

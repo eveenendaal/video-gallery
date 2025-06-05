@@ -2,6 +2,70 @@
 
 The goal of this project is to build a serverless ready application for displaying a users video content library using only a single storage bucket.
 
+## Command Line Interface
+
+Video Gallery now includes a full-featured command-line interface with the following commands:
+
+```
+Usage:
+  video-gallery [command] [options]
+
+Commands:
+  list-categories     List all video categories
+  list-galleries      List all galleries
+  show-gallery [stub] Show videos in a specific gallery
+  export [format]     Export gallery data (formats: json)
+  generate-thumbnails Generate thumbnails for videos without existing thumbnails
+  serve               Start the web server (original functionality)
+
+Options:
+  -h, --help          Show this help message
+  -s, --secret-key    Set the SECRET_KEY (overrides environment variable)
+  -b, --bucket        Set the BUCKET_NAME (overrides environment variable)
+  -p, --port          Set the PORT (overrides environment variable)
+```
+
+### Examples
+
+List all categories:
+```bash
+video-gallery list-categories -s mysecretkey -b mybucket
+```
+
+List all galleries:
+```bash
+video-gallery list-galleries -s mysecretkey -b mybucket
+```
+
+Show a specific gallery:
+```bash
+video-gallery show-gallery gallery-stub-name -s mysecretkey -b mybucket
+```
+
+Export gallery data as JSON:
+```bash
+video-gallery export json -s mysecretkey -b mybucket
+```
+
+Generate thumbnails for videos that don't have them:
+```bash
+video-gallery generate-thumbnails -s mysecretkey -b mybucket
+```
+
+Generate thumbnails with additional options:
+```bash
+video-gallery generate-thumbnails -s mysecretkey -b mybucket -t 3000 -f -o /tmp/thumbs
+```
+Options:
+- `-t, --time` - Time in milliseconds where to extract the thumbnail frame (default: 1000ms)
+- `-f, --force` - Force regeneration of thumbnails even if they already exist
+- `-o, --output-dir` - Directory for temporary files (default: "thumbnails")
+
+Start the web server:
+```bash
+video-gallery serve -s mysecretkey -b mybucket -p 8080
+```
+
 ## Web Interface
 
 The interface is pretty simple.
@@ -153,4 +217,3 @@ Here's a real example
     * Video of Alice 3.mp4
 
 The code parses the bucket and creates a list of categories, groups, and videos. The code also looks for a thumbnail for each video. If a thumbnail is not found, the thumbnail url will be null.
-

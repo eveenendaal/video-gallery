@@ -1,0 +1,341 @@
+package cmd
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+
+	"github.com/spf13/cobra"
+	"video-gallery/pkg/services"
+
+	"cloud.google.com/go/storage"
+)
+
+// Command options
+var (
+	outputDir       string
+	forceRegenerate bool
+	frameTimeMs     int // Time in milliseconds where to extract the frame
+)
+
+// newGenerateThumbnailsCmd creates a new command for generating thumbnails for videos
+func newGenerateThumbnailsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "generate-thumbnails",
+		Short: "Generate thumbnails for videos without existing thumbnails",
+		Long:  `Generate thumbnails for videos that don't have existing thumbnails in the gallery.`,
+		Run: func(cmd *cobra.Command, args []string) {
+			cfg, err := LoadConfig()
+			if err != nil {
+				log.Fatalf("Failed to load configuration: %v", err)
+			}
+			services.InitService(cfg)
+			generateThumbnails()
+		},
+	}
+
+	// Add command-specific flags
+	cmd.Flags().StringVarP(&outputDir, "output-dir", "o", "thumbnails", "Directory to store temporary thumbnails")
+	cmd.Flags().BoolVarP(&forceRegenerate, "force", "f", false, "Force regeneration of all thumbnails, even if they exist")
+	cmd.Flags().IntVarP(&frameTimeMs, "time", "t", 1000, "Time in milliseconds where to extract the thumbnail frame")
+
+	return cmd
+}
+
+// generateThumbnails creates thumbnails for videos that don't have them
+func generateThumbnails() {
+	// Check if ffmpeg is installed
+	if err := checkFFmpeg(); err != nil {
+		log.Fatalf("FFmpeg is required but not found: %v", err)
+	}
+
+	// 1. Get all galleries and their videos
+	categories := services.GetCategories()
+
+	// Create output directory if it doesn't exist
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		log.Fatalf("Failed to create output directory: %v", err)
+	}
+
+	ctx := context.Background()
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		log.Fatalf("Failed to create storage client: %v", err)
+	}
+	defer func() {
+		if err := client.Close(); err != nil {
+			log.Printf("Warning: error closing storage client: %v", err)
+		}
+	}()
+
+	bucketName := os.Getenv("BUCKET_NAME")
+	if bucketName == "" {
+		log.Fatalf("BUCKET_NAME environment variable not set")
+	}
+
+	bucket := client.Bucket(bucketName)
+
+	// Process each gallery
+	totalVideos := 0
+	totalProcessed := 0
+	missingThumbnails := 0
+
+	fmt.Println("Scanning for videos without thumbnails...")
+
+	for _, category := range categories {
+		for _, gallery := range category.Galleries {
+			fmt.Printf("Gallery: %s\n", gallery.Name)
+
+			for _, video := range gallery.Videos {
+				totalVideos++
+
+				// Check if thumbnail exists
+				thumbnailNeeded := video.Thumbnail == nil || *video.Thumbnail == "" || forceRegenerate
+
+				if thumbnailNeeded {
+					missingThumbnails++
+					fmt.Printf("  Generating thumbnail for: %s\n", video.Name)
+
+					// Generate thumbnail path from video path
+					videoPath := video.Url
+					thumbnailPath := generateThumbnailPath(videoPath)
+
+					// Generate safe filenames for local storage
+					videoBaseName := getSafeFilename(videoPath)
+					thumbnailBaseName := getSafeFilename(thumbnailPath)
+
+					// Download video to temp location with safe filename
+					tmpVideoPath := filepath.Join(outputDir, videoBaseName)
+					if err := downloadFile(ctx, bucket, videoPath, tmpVideoPath); err != nil {
+						fmt.Printf("    Error downloading video: %v\n", err)
+						continue
+					}
+
+					// Create thumbnail using FFmpeg with safe filename
+					tmpThumbnailPath := filepath.Join(outputDir, thumbnailBaseName)
+					if err := createThumbnailWithFFmpeg(tmpVideoPath, tmpThumbnailPath); err != nil {
+						fmt.Printf("    Error creating thumbnail: %v\n", err)
+						// Clean up video file
+						if err := os.Remove(tmpVideoPath); err != nil {
+							log.Printf("Warning: failed to remove temp file %s: %v", tmpVideoPath, err)
+						}
+						continue
+					}
+
+					// Upload thumbnail to bucket
+					if err := uploadFile(ctx, bucket, tmpThumbnailPath, thumbnailPath); err != nil {
+						fmt.Printf("    Error uploading thumbnail: %v\n", err)
+						// Clean up files
+						if err := os.Remove(tmpVideoPath); err != nil {
+							log.Printf("Warning: failed to remove temp file %s: %v", tmpVideoPath, err)
+						}
+						if err := os.Remove(tmpThumbnailPath); err != nil {
+							log.Printf("Warning: failed to remove temp file %s: %v", tmpThumbnailPath, err)
+						}
+						continue
+					}
+
+					fmt.Printf("    Created thumbnail: %s\n", thumbnailPath)
+					totalProcessed++
+
+					// Clean up temporary files
+					if err := os.Remove(tmpVideoPath); err != nil {
+						log.Printf("Warning: failed to remove temp file %s: %v", tmpVideoPath, err)
+					}
+					if err := os.Remove(tmpThumbnailPath); err != nil {
+						log.Printf("Warning: failed to remove temp file %s: %v", tmpThumbnailPath, err)
+					}
+				}
+			}
+		}
+	}
+
+	fmt.Printf("\nSummary:\n")
+	fmt.Printf("  Total videos: %d\n", totalVideos)
+	fmt.Printf("  Videos without thumbnails: %d\n", missingThumbnails)
+	fmt.Printf("  Thumbnails successfully generated: %d\n", totalProcessed)
+}
+
+// getSafeFilename creates a safe filename from a URL by:
+// 1. Removing query parameters
+// 2. Using only the base name
+// 3. If still too long, using a hash of the original path
+func getSafeFilename(path string) string {
+	// Remove query parameters by taking everything before '?'
+	if idx := strings.Index(path, "?"); idx != -1 {
+		path = path[:idx]
+	}
+
+	// Get just the filename without directory
+	baseName := filepath.Base(path)
+
+	// If the name is still too long (>200 chars is usually problematic)
+	if len(baseName) > 200 {
+		// Create a hash of the original path
+		hash := sha256.Sum256([]byte(path))
+		extension := filepath.Ext(baseName)
+
+		// Use the first part of the filename (up to 20 chars) + hash + extension
+		shortName := baseName
+		if len(baseName) > 20 {
+			shortName = baseName[:20]
+		}
+
+		// Remove characters that might be problematic in filenames
+		shortName = strings.Map(func(r rune) rune {
+			if strings.ContainsRune(`<>:"/\|?*`, r) {
+				return '_'
+			}
+			return r
+		}, shortName)
+
+		// Create a new filename with hash
+		baseName = fmt.Sprintf("%s-%s%s", shortName, hex.EncodeToString(hash[:8]), extension)
+	}
+
+	return baseName
+}
+
+// generateThumbnailPath converts a video path to a thumbnail path
+func generateThumbnailPath(videoPath string) string {
+	// Remove any URL parameters
+	if idx := strings.Index(videoPath, "?"); idx != -1 {
+		videoPath = videoPath[:idx]
+	}
+
+	ext := filepath.Ext(videoPath)
+	baseName := videoPath[:len(videoPath)-len(ext)]
+	return baseName + ".jpg"
+}
+
+// checkFFmpeg verifies that FFmpeg is installed and accessible
+func checkFFmpeg() error {
+	cmd := exec.Command("ffmpeg", "-version")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("ffmpeg not found or not working: %v", err)
+	}
+	return nil
+}
+
+// createThumbnailWithFFmpeg creates a thumbnail from a video using FFmpeg
+func createThumbnailWithFFmpeg(videoPath, thumbnailPath string) error {
+	// Format time for FFmpeg (convert milliseconds to HH:MM:SS.mmm format)
+	seconds := frameTimeMs / 1000
+	milliseconds := frameTimeMs % 1000
+	timeStr := fmt.Sprintf("00:00:%02d.%03d", seconds, milliseconds)
+
+	// Use FFmpeg to extract a frame at the specified time
+	cmd := exec.Command(
+		"ffmpeg",
+		"-i", videoPath, // Input file
+		"-ss", timeStr, // Seek to time position
+		"-vframes", "1", // Extract only one frame
+		"-q:v", "2", // Quality (lower is better)
+		"-f", "image2", // Force image2 format
+		"-y",          // Overwrite without asking
+		thumbnailPath, // Output file
+	)
+
+	// Capture any error output for better error messages
+	var stderr strings.Builder
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("ffmpeg failed: %v, stderr: %s", err, stderr.String())
+	}
+
+	return nil
+}
+
+// downloadFile downloads a file from GCS bucket to a local path
+// Handles both direct object paths and signed URLs
+func downloadFile(ctx context.Context, bucket *storage.BucketHandle, src, dst string) error {
+	// Create the file
+	f, err := os.Create(dst)
+	if err != nil {
+		return fmt.Errorf("os.Create: %v", err)
+	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Printf("Warning: error closing file %s: %v", dst, err)
+		}
+	}()
+
+	// Handle direct download of the content using the full URL
+	// This is needed for signed URLs which can't be accessed through object methods
+	if strings.HasPrefix(src, "http") {
+		// Use http.Get for the signed URL
+		resp, err := http.Get(src)
+		if err != nil {
+			return fmt.Errorf("http.Get(%q): %v", src, err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("bad status code: %d", resp.StatusCode)
+		}
+
+		// Copy the response body to the local file
+		if _, err := io.Copy(f, resp.Body); err != nil {
+			return fmt.Errorf("io.Copy: %v", err)
+		}
+
+		return nil
+	}
+
+	// For direct object paths (not URLs), use the standard GCS approach
+	// Remove any leading slash from src
+	src = strings.TrimPrefix(src, "/")
+
+	// Download the file from the bucket
+	reader, err := bucket.Object(src).NewReader(ctx)
+	if err != nil {
+		return fmt.Errorf("Object(%q).NewReader: %v", src, err)
+	}
+	defer func() {
+		if err := reader.Close(); err != nil {
+			log.Printf("Warning: error closing reader: %v", err)
+		}
+	}()
+
+	if _, err := f.ReadFrom(reader); err != nil {
+		return fmt.Errorf("ReadFrom: %v", err)
+	}
+
+	return nil
+}
+
+// uploadFile uploads a file to GCS bucket
+func uploadFile(ctx context.Context, bucket *storage.BucketHandle, src, dst string) error {
+	// Remove any leading slash from dst
+	dst = strings.TrimPrefix(dst, "/")
+
+	// Create a writer
+	writer := bucket.Object(dst).NewWriter(ctx)
+	writer.ContentType = "image/jpeg"
+
+	// Read the file
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return fmt.Errorf("os.ReadFile: %v", err)
+	}
+
+	// Write the file
+	if _, err := writer.Write(data); err != nil {
+		return fmt.Errorf("Writer.Write: %v", err)
+	}
+
+	// Close the writer
+	if err := writer.Close(); err != nil {
+		return fmt.Errorf("Writer.Close: %v", err)
+	}
+	return nil
+}

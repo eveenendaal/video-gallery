@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"video-gallery/pkg/services"
@@ -283,9 +284,27 @@ func downloadFile(ctx context.Context, bucket *storage.BucketHandle, src, dst st
 			return fmt.Errorf("bad status code: %d", resp.StatusCode)
 		}
 
-		// Copy the response body to the local file
-		if _, err := io.Copy(f, resp.Body); err != nil {
+		// Get content length for progress reporting
+		contentLength := resp.ContentLength
+		baseName := filepath.Base(dst)
+
+		// Create a progress tracking reader
+		progressReader := &progressReader{
+			reader:        resp.Body,
+			contentLength: contentLength,
+			fileName:      baseName,
+			lastUpdate:    time.Now(),
+			bytesRead:     0,
+		}
+
+		// Copy the response body to the local file with progress reporting
+		if _, err := io.Copy(f, progressReader); err != nil {
 			return fmt.Errorf("io.Copy: %v", err)
+		}
+
+		// Print a newline after download completes
+		if contentLength > 0 {
+			fmt.Println()
 		}
 
 		return nil
@@ -306,11 +325,94 @@ func downloadFile(ctx context.Context, bucket *storage.BucketHandle, src, dst st
 		}
 	}()
 
-	if _, err := f.ReadFrom(reader); err != nil {
+	// Get content length for progress reporting
+	size := reader.Attrs.Size
+	baseName := filepath.Base(dst)
+
+	// Create a progress tracking reader
+	progressReader := &progressReader{
+		reader:        reader,
+		contentLength: size,
+		fileName:      baseName,
+		lastUpdate:    time.Now(),
+		bytesRead:     0,
+	}
+
+	// Copy the data with progress reporting
+	if _, err := io.Copy(f, progressReader); err != nil {
 		return fmt.Errorf("ReadFrom: %v", err)
 	}
 
+	// Print a newline after download completes
+	if size > 0 {
+		fmt.Println()
+	}
+
 	return nil
+}
+
+// progressReader wraps an io.Reader to provide progress updates
+type progressReader struct {
+	reader        io.Reader
+	contentLength int64
+	fileName      string
+	lastUpdate    time.Time
+	bytesRead     int64
+}
+
+// Read implements the io.Reader interface
+func (pr *progressReader) Read(p []byte) (int, error) {
+	n, err := pr.reader.Read(p)
+	pr.bytesRead += int64(n)
+
+	// Don't report progress too frequently - update at most every 500ms
+	now := time.Now()
+	if now.Sub(pr.lastUpdate) >= 500*time.Millisecond {
+		pr.updateProgress()
+		pr.lastUpdate = now
+	}
+
+	return n, err
+}
+
+// updateProgress prints the download progress
+func (pr *progressReader) updateProgress() {
+	if pr.contentLength <= 0 {
+		// If content length is unknown, just show bytes read
+		fmt.Printf("\r    Downloading %s: %d bytes...", pr.fileName, pr.bytesRead)
+		return
+	}
+
+	// Calculate percentage
+	percent := float64(pr.bytesRead) / float64(pr.contentLength) * 100
+
+	// Format sizes in human-readable format
+	downloaded := formatSize(pr.bytesRead)
+	total := formatSize(pr.contentLength)
+
+	// Update the progress line (overwrite previous with \r)
+	fmt.Printf("\r    Downloading %s: %.1f%% (%s/%s)...", pr.fileName, percent, downloaded, total)
+}
+
+// formatSize converts bytes to a human-readable format
+func formatSize(bytes int64) string {
+	const (
+		B  int64 = 1
+		KB       = B * 1024
+		MB       = KB * 1024
+		GB       = MB * 1024
+	)
+
+	switch {
+	case bytes >= GB:
+		return fmt.Sprintf("%.2f GB", float64(bytes)/float64(GB))
+	case bytes >= MB:
+		return fmt.Sprintf("%.2f MB", float64(bytes)/float64(MB))
+	case bytes >= KB:
+		return fmt.Sprintf("%.2f KB", float64(bytes)/float64(KB))
+	default:
+		return fmt.Sprintf("%d B", bytes)
+	}
 }
 
 // uploadFile uploads a file to GCS bucket

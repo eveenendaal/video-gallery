@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -228,9 +229,41 @@ func getSafeFilename(path string) string {
 
 // generateThumbnailPath converts a video path to a thumbnail path
 func generateThumbnailPath(videoPath string) string {
+	// For URLs, extract just the bucket path part
+	if strings.HasPrefix(videoPath, "http") {
+		// If it's a URL, strip the domain and keep just the path
+		// Example: "https://storage.googleapis.com/veenendaal-videos/Videos/SNL/SNL%2050.mp4"
+		// Should become: "Videos/SNL/SNL 50.jpg"
+
+		// Find the bucket name in the URL
+		parts := strings.Split(videoPath, "/")
+		bucketIndex := -1
+		bucketName := os.Getenv("BUCKET_NAME")
+
+		for i, part := range parts {
+			if part == bucketName {
+				bucketIndex = i
+				break
+			}
+		}
+
+		if bucketIndex >= 0 && bucketIndex+1 < len(parts) {
+			// Extract just the path after the bucket name
+			videoPath = strings.Join(parts[bucketIndex+1:], "/")
+		}
+	}
+
 	// Remove any URL parameters
 	if idx := strings.Index(videoPath, "?"); idx != -1 {
 		videoPath = videoPath[:idx]
+	}
+
+	// URL-decode the path (convert %20 to spaces, etc.)
+	var err error
+	videoPath, err = url.QueryUnescape(videoPath)
+	if err != nil {
+		// If there's an error decoding, just use the original path
+		log.Printf("Warning: couldn't decode URL path: %v", err)
 	}
 
 	ext := filepath.Ext(videoPath)

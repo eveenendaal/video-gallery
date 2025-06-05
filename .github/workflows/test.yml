@@ -24,4 +24,4 @@ jobs:
           go-version: 'stable'
 
       - name: Build Backend
-        run: go build -o video-gallery ./bin/serve
+        run: go build -o video-gallery

@@ -25,6 +25,7 @@ var (
 	outputDir       string
 	forceRegenerate bool
 	frameTimeMs     int // Time in milliseconds where to extract the frame
+	maxSizeMB       int // Maximum video size in MB to process
 )
 
 // newGenerateThumbnailsCmd creates a new command for generating thumbnails for videos
@@ -47,6 +48,7 @@ func newGenerateThumbnailsCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&outputDir, "output-dir", "o", "thumbnails", "Directory to store temporary thumbnails")
 	cmd.Flags().BoolVarP(&forceRegenerate, "force", "f", false, "Force regeneration of all thumbnails, even if they exist")
 	cmd.Flags().IntVarP(&frameTimeMs, "time", "t", 1000, "Time in milliseconds where to extract the thumbnail frame")
+	cmd.Flags().IntVarP(&maxSizeMB, "max-size", "m", 0, "Maximum video size in MB to process (0 means no limit)")
 
 	return cmd
 }
@@ -91,6 +93,7 @@ func generateThumbnails() {
 
 	fmt.Println("Scanning for videos without thumbnails...")
 
+	// Process each gallery with videos that need thumbnails
 	for _, category := range categories {
 		for _, gallery := range category.Galleries {
 			fmt.Printf("Gallery: %s\n", gallery.Name)
@@ -108,6 +111,24 @@ func generateThumbnails() {
 					// Generate thumbnail path from video path
 					videoPath := video.Url
 					thumbnailPath := generateThumbnailPath(videoPath)
+
+					// Check file size before downloading if max size limit is set
+					if maxSizeMB > 0 {
+						fileSize, err := getVideoSize(ctx, bucket, videoPath)
+						if err != nil {
+							fmt.Printf("    Error checking video size: %v\n", err)
+							continue
+						}
+
+						// Convert size to MB
+						videoSizeMB := fileSize / (1024 * 1024)
+
+						if videoSizeMB > int64(maxSizeMB) {
+							fmt.Printf("    Skipping video %s: size %d MB exceeds limit of %d MB\n",
+								video.Name, videoSizeMB, maxSizeMB)
+							continue
+						}
+					}
 
 					// Generate safe filenames for local storage
 					videoBaseName := getSafeFilename(videoPath)
@@ -351,6 +372,47 @@ func downloadFile(ctx context.Context, bucket *storage.BucketHandle, src, dst st
 	return nil
 }
 
+// getVideoSize checks the size of a video file before downloading it
+func getVideoSize(ctx context.Context, bucket *storage.BucketHandle, src string) (int64, error) {
+	// For signed URLs, make a HEAD request to get the Content-Length
+	if strings.HasPrefix(src, "http") {
+		// Create a HEAD request to avoid downloading the content
+		req, err := http.NewRequestWithContext(ctx, "HEAD", src, nil)
+		if err != nil {
+			return 0, fmt.Errorf("error creating HEAD request: %v", err)
+		}
+
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			return 0, fmt.Errorf("error making HEAD request: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return 0, fmt.Errorf("bad status code: %d", resp.StatusCode)
+		}
+
+		// Get Content-Length header
+		contentLength := resp.ContentLength
+		if contentLength <= 0 {
+			// If Content-Length is not available, we can't determine size
+			return 0, fmt.Errorf("content length not available for URL")
+		}
+
+		return contentLength, nil
+	}
+
+	// For direct object paths, use the GCS API
+	src = strings.TrimPrefix(src, "/")
+	attrs, err := bucket.Object(src).Attrs(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get object attributes: %v", err)
+	}
+
+	return attrs.Size, nil
+}
+
 // progressReader wraps an io.Reader to provide progress updates
 type progressReader struct {
 	reader        io.Reader
@@ -417,27 +479,39 @@ func formatSize(bytes int64) string {
 
 // uploadFile uploads a file to GCS bucket
 func uploadFile(ctx context.Context, bucket *storage.BucketHandle, src, dst string) error {
-	// Remove any leading slash from dst
-	dst = strings.TrimPrefix(dst, "/")
-
-	// Create a writer
-	writer := bucket.Object(dst).NewWriter(ctx)
-	writer.ContentType = "image/jpeg"
-
-	// Read the file
+	// Read the file data
 	data, err := os.ReadFile(src)
 	if err != nil {
 		return fmt.Errorf("os.ReadFile: %v", err)
 	}
 
+	// Process destination path
+	// Remove any leading slash from dst
+	dst = strings.TrimPrefix(dst, "/")
+
+	// Remove query parameters if any
+	if idx := strings.Index(dst, "?"); idx != -1 {
+		dst = dst[:idx]
+	}
+
+	fmt.Printf("    Uploading thumbnail to %s... ", dst)
+
+	// Create a writer with appropriate content type
+	writer := bucket.Object(dst).NewWriter(ctx)
+	writer.ContentType = "image/jpeg"
+
 	// Write the file
 	if _, err := writer.Write(data); err != nil {
+		fmt.Println("Failed")
 		return fmt.Errorf("Writer.Write: %v", err)
 	}
 
-	// Close the writer
+	// Close the writer to complete the upload
 	if err := writer.Close(); err != nil {
+		fmt.Println("Failed")
 		return fmt.Errorf("Writer.Close: %v", err)
 	}
+
+	fmt.Println("Done")
 	return nil
 }

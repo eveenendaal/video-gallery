@@ -30,6 +30,8 @@ package-lock.json
 
 # Ignoring
 out
+target
+thumbnails
 
 # Creds
 creds.json
@@ -37,9 +39,5 @@ creds.json
 # Styles
 public/styles.css*
 
-# Shell scripts
-start.sh
-
 # Bin
 video-gallery
-target

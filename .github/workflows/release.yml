@@ -29,6 +29,10 @@ jobs:
         with:
           go-version: 'stable'
 
+      - name: Set outputs
+        id: vars
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
       - name: Build binaries
         run: |
           # Create release directory
@@ -64,11 +68,8 @@ jobs:
           sha256sum * > checksums.txt
 
       - name: Create Release
+        id: create_release
         uses: softprops/action-gh-release@v2
         with:
-          files: release/*
-          generate_release_notes: true
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: Release ${{ steps.vars.outputs.sha_short }}
+          tag_name: ${{ steps.vars.outputs.sha_short }}

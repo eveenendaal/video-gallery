@@ -2,10 +2,17 @@
 name: Release
 
 'on':
+  schedule:
+    - cron: '0 0 * * 1'
   push:
-    tags:
-      - 'v*'
-  workflow_dispatch: true
+    branches:
+      - 'master'
+    paths:
+      - 'scss/**'
+      - 'views/**'
+      - '*'
+      - '.github/workflows/release.yml'
+  workflow_dispatch:
 
 permissions:
   contents: write

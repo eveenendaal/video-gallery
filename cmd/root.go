@@ -13,14 +13,19 @@ var (
 	portNumber string
 )
 
+// Version of the application
+const Version = "v1.0.0"
+
 // NewRootCmd creates and returns the root command
 func NewRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:   "video-gallery",
-		Short: "Video Gallery is a tool for managing and displaying video galleries",
-		Long: `Video Gallery is a command line application that can display and manage video galleries
-stored in Google Cloud Storage. It can also serve these galleries via a web interface.`,
+		Use:     "video-gallery",
+		Short:   "Video Gallery is a tool for managing and displaying video galleries",
+		Long:    `Video Gallery is a command line application that can display and manage video galleries\nstored in Google Cloud Storage. It can also serve these galleries via a web interface.`,
+		Version: Version,
 	}
+
+	rootCmd.SetVersionTemplate("{{.Version}}\n")
 
 	// Define persistent flags that will be available for all commands
 	rootCmd.PersistentFlags().StringVarP(&secretKey, "secret-key", "s", "", "Set the SECRET_KEY (overrides environment variable)")

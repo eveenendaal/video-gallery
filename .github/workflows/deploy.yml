@@ -9,6 +9,7 @@ on:
     paths:
       - 'scss/**'
       - 'views/**'
+      - '**/*.go'
       - '*'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:

@@ -217,3 +217,13 @@ Here's a real example
     * Video of Alice 3.mp4
 
 The code parses the bucket and creates a list of categories, groups, and videos. The code also looks for a thumbnail for each video. If a thumbnail is not found, the thumbnail url will be null.
+
+## Releases
+
+Pre-built binaries are available for download from the [Releases](https://github.com/eveenendaal/video-gallery/releases) page. Binaries are provided for:
+
+- **Linux**: amd64 and arm64 architectures
+- **macOS**: amd64 (Intel) and arm64 (Apple Silicon) architectures  
+- **Windows**: amd64 and arm64 architectures
+
+Each release includes checksums for verification. To create a new release, simply create and push a git tag with semantic versioning (e.g., `v1.0.0`).

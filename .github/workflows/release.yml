@@ -1,0 +1,67 @@
+---
+name: Release
+
+'on':
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: Build binaries
+        run: |
+          # Create release directory
+          mkdir -p release
+
+          # Build for Linux amd64
+          GOOS=linux GOARCH=amd64 go build \
+            -o release/video-gallery-linux-amd64 .
+
+          # Build for Linux arm64
+          GOOS=linux GOARCH=arm64 go build \
+            -o release/video-gallery-linux-arm64 .
+
+          # Build for macOS amd64
+          GOOS=darwin GOARCH=amd64 go build \
+            -o release/video-gallery-darwin-amd64 .
+
+          # Build for macOS arm64 (Apple Silicon)
+          GOOS=darwin GOARCH=arm64 go build \
+            -o release/video-gallery-darwin-arm64 .
+
+          # Build for Windows amd64
+          GOOS=windows GOARCH=amd64 go build \
+            -o release/video-gallery-windows-amd64.exe .
+
+          # Build for Windows arm64
+          GOOS=windows GOARCH=arm64 go build \
+            -o release/video-gallery-windows-arm64.exe .
+
+      - name: Create checksums
+        run: |
+          cd release
+          sha256sum * > checksums.txt
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

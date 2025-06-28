@@ -1,7 +1,7 @@
 ---
 name: Release
 
-'on':
+on:
   schedule:
     - cron: '0 0 * * 1'
   push:

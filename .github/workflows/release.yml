@@ -71,5 +71,6 @@ jobs:
         id: create_release
         uses: softprops/action-gh-release@v2
         with:
+          files: release/*
           name: Release ${{ steps.vars.outputs.sha_short }}
           tag_name: ${{ steps.vars.outputs.sha_short }}

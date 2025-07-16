@@ -13,8 +13,8 @@ var (
 	portNumber string
 )
 
-// Version of the application
-const Version = "v1.0.0"
+// Version of the application (set at build time)
+var Version = "dev"
 
 // NewRootCmd creates and returns the root command
 func NewRootCmd() *cobra.Command {

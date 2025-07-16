@@ -13,8 +13,11 @@ RUN go mod download
 # Copy the source code
 COPY . .
 
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -o video-gallery
+# Build argument for version
+ARG VERSION=dev
+
+# Build the application with version injection
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags "-X video-gallery/cmd.Version=${VERSION}" -o video-gallery
 
 # Final stage
 FROM alpine:latest

@@ -30,6 +30,13 @@ jobs:
         with:
           go-version: 'stable'
 
+      - uses: anothrNick/github-tag-action@1.73.0
+        id: bump
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WITH_V: false
+          DEFAULT_BUMP: patch
+
       - name: Set outputs
         id: vars
         run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
@@ -39,28 +46,41 @@ jobs:
           # Create release directory
           mkdir -p release
 
+          # Create VERSION file
+          echo "${{ steps.bump.outputs.new_tag }}" > release/VERSION
+
+          # Set version for builds
+          VERSION="${{ steps.bump.outputs.new_tag }}"
+          LDFLAGS="-X video-gallery/cmd.Version=${VERSION}"
+
           # Build for Linux amd64
           GOOS=linux GOARCH=amd64 go build \
+            -ldflags "${LDFLAGS}" \
             -o release/video-gallery-linux-amd64 .
 
           # Build for Linux arm64
           GOOS=linux GOARCH=arm64 go build \
+            -ldflags "${LDFLAGS}" \
             -o release/video-gallery-linux-arm64 .
 
           # Build for macOS amd64
           GOOS=darwin GOARCH=amd64 go build \
+            -ldflags "${LDFLAGS}" \
             -o release/video-gallery-darwin-amd64 .
 
           # Build for macOS arm64 (Apple Silicon)
           GOOS=darwin GOARCH=arm64 go build \
+            -ldflags "${LDFLAGS}" \
             -o release/video-gallery-darwin-arm64 .
 
           # Build for Windows amd64
           GOOS=windows GOARCH=amd64 go build \
+            -ldflags "${LDFLAGS}" \
             -o release/video-gallery-windows-amd64.exe .
 
           # Build for Windows arm64
           GOOS=windows GOARCH=arm64 go build \
+            -ldflags "${LDFLAGS}" \
             -o release/video-gallery-windows-arm64.exe .
 
       - name: Create checksums
@@ -73,5 +93,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: release/*
-          name: Release ${{ steps.vars.outputs.sha_short }}
-          tag_name: ${{ steps.vars.outputs.sha_short }}
+          name: Release ${{ steps.bump.outputs.new_tag }}
+          tag_name: ${{ steps.bump.outputs.new_tag }}

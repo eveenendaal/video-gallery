@@ -55,7 +55,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: anothrNick/github-tag-action@1.73.0
+      - uses: anothrNick/github-tag-action@1.75.0
         id: bump
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

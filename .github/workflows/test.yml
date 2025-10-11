@@ -4,6 +4,12 @@ on:
   pull_request:
     branches:
       - 'master'
+    paths:
+      - 'scss/**'
+      - 'views/**'
+      - '**/*.go'
+      - '*'
+      - '.github/workflows/release.yml'
 
 jobs:
   test:

@@ -1,8 +1,6 @@
 name: Deploy
 
 on:
-  schedule:
-    - cron: '0 0 * * 1' # Every Monday at midnight
   push:
     branches:
       - 'master'

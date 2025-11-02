@@ -171,7 +171,29 @@ This is an example video feed. The URL and thumbnail values are just placeholder
 This tvOS application is compatible with this video feed
 
 ## Code Structure
-The code obviously could be more organized, but since it only takes a couple hundred lines of code to do what the application needs. I just keep everything in a single file. I'm planning on abtracting the Cloud Run and Cloud Storage Bucket code to allow for the core logic to work with any cloud provider and storage solution.
+
+The project follows a standard Go application structure:
+
+```
+.
+├── api/              # API documentation and test requests
+├── assets/           # Frontend assets
+│   ├── scss/        # SASS stylesheets
+│   └── templates/   # Pug templates
+├── build/           # Build and deployment files (Dockerfile, etc.)
+├── cmd/             # CLI command implementations
+├── config/          # Configuration files
+├── docs/            # Project documentation
+├── pkg/             # Go packages
+│   ├── config/      # Configuration management
+│   ├── handlers/    # HTTP request handlers
+│   ├── models/      # Data models
+│   └── services/    # Business logic services
+├── public/          # Static web assets
+├── schemas/         # JSON schemas
+├── scripts/         # Build and automation scripts
+└── terraform/       # Infrastructure as code
+```
 
 ## Infrastructure
 Like I said in the summary, this application can run in Cloud Run for essentially no cost, and only needs a single Storage Bucket to function. Below I will describe the structure of those setups.

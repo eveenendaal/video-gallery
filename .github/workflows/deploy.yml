@@ -5,8 +5,7 @@ on:
     branches:
       - 'master'
     paths:
-      - 'scss/**'
-      - 'views/**'
+      - 'assets/**'
       - '**/*.go'
       - '*'
       - '.github/workflows/deploy.yml'
@@ -78,6 +77,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+          file: ./build/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

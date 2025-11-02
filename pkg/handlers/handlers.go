@@ -15,7 +15,7 @@ import (
 func GalleryHandler(w http.ResponseWriter, _ *http.Request) {
 	log.Println("Generating Index")
 
-	template, err := pug.CompileFile("./views/index.pug", pug.Options{})
+	template, err := pug.CompileFile("./assets/templates/index.pug", pug.Options{})
 	if err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		log.Printf("Template error: %v", err)
@@ -67,7 +67,7 @@ func PageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("Generating Gallery Page: %s", path)
 
-	template, err := pug.CompileFile("./views/gallery.pug", pug.Options{})
+	template, err := pug.CompileFile("./assets/templates/gallery.pug", pug.Options{})
 	if err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		log.Printf("Template error: %v", err)

@@ -5,8 +5,7 @@ on:
     branches:
       - 'master'
     paths:
-      - 'scss/**'
-      - 'views/**'
+      - 'assets/**'
       - '**/*.go'
       - '*'
       - '.github/workflows/release.yml'

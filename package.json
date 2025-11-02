@@ -5,7 +5,7 @@
   "author": "Eric Veenendaal",
   "license": "GPL-3.0",
   "scripts": {
-    "build": "sass scss/styles.scss public/styles.css"
+    "build": "sass assets/scss/styles.scss public/styles.css"
   },
   "dependencies": {
     "bulma": "^0.9.4",

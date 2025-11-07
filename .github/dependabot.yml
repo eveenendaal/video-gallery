@@ -11,7 +11,6 @@ updates:
       - "eveenendaal"
     schedule:
       interval: monthly
-      day: saturday
       time: "02:00"
       timezone: "Europe/Amsterdam"
   - package-ecosystem: "github-actions"
@@ -20,7 +19,6 @@ updates:
       - "eveenendaal"
     schedule:
       interval: monthly
-      day: saturday
       time: "02:00"
       timezone: "Europe/Amsterdam"
   - package-ecosystem: "docker"
@@ -29,7 +27,6 @@ updates:
       - "eveenendaal"
     schedule:
       interval: monthly
-      day: saturday
       time: "02:00"
       timezone: "Europe/Amsterdam"
   - package-ecosystem: "devcontainers"
@@ -38,6 +35,5 @@ updates:
       - "eveenendaal"
     schedule:
       interval: monthly
-      day: saturday
       time: "02:00"
       timezone: "Europe/Amsterdam"

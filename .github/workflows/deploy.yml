@@ -132,21 +132,22 @@ jobs:
           LDFLAGS="-X video-gallery/cmd.Version=${VERSION}"
 
           # Build for multiple platforms
-          platforms=("linux/amd64" "linux/arm64" "darwin/amd64" "darwin/arm64" "windows/amd64" "windows/arm64")
+          GOOS_LIST=("linux" "darwin" "windows")
+          GOARCH_LIST=("amd64" "arm64")
           
-          for platform in "${platforms[@]}"; do
-            GOOS=${platform%/*}
-            GOARCH=${platform#*/}
-            output="release/video-gallery-${GOOS}-${GOARCH}"
-            
-            if [ "$GOOS" = "windows" ]; then
-              output="${output}.exe"
-            fi
-            
-            echo "Building for ${GOOS}/${GOARCH}..."
-            GOOS=$GOOS GOARCH=$GOARCH go build \
-              -ldflags "${LDFLAGS}" \
-              -o "$output" .
+          for GOOS in "${GOOS_LIST[@]}"; do
+            for GOARCH in "${GOARCH_LIST[@]}"; do
+              output="release/video-gallery-${GOOS}-${GOARCH}"
+              
+              if [ "$GOOS" = "windows" ]; then
+                output="${output}.exe"
+              fi
+              
+              echo "Building for ${GOOS}/${GOARCH}..."
+              GOOS=$GOOS GOARCH=$GOARCH go build \
+                -ldflags "${LDFLAGS}" \
+                -o "$output" .
+            done
           done
 
       - name: Create checksums

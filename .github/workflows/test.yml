@@ -8,7 +8,7 @@ on:
       - 'assets/**'
       - '**/*.go'
       - '*'
-      - '.github/workflows/release.yml'
+      - '.github/workflows/test.yml'
 
 jobs:
   test:
@@ -19,11 +19,26 @@ jobs:
         shell: bash
 
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout
+        uses: actions/checkout@v5
 
-      - uses: actions/setup-go@v6
+      - name: Setup Go
+        uses: actions/setup-go@v6
         with:
           go-version: 'stable'
+          cache: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build Styles
+        run: npm run build
 
       - name: Build Backend
         run: go build -o video-gallery

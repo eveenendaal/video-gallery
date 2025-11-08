@@ -14,14 +14,13 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  IMAGE_SOURCE: "ghcr.io/${{ github.repository }}:${{ github.ref_name }}"
 
 concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     environment: default
     permissions:
@@ -30,20 +29,36 @@ jobs:
     defaults:
       run:
         shell: bash
+    outputs:
+      version: ${{ steps.bump.outputs.new_tag }}
 
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: '22'
+          cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build Styles
         run: npm run build
+
+      - name: Bump version and create tag
+        uses: anothrNick/github-tag-action@1.75.0
+        id: bump
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WITH_V: false
+          DEFAULT_BUMP: patch
+          INITIAL_VERSION: 1.0.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to the Container registry
         uses: docker/login-action@v3
@@ -51,14 +66,6 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: anothrNick/github-tag-action@1.75.0
-        id: bump
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          WITH_V: false
-          DEFAULT_BUMP: patch
-          INITIAL_VERSION: 1.0.0
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
@@ -70,7 +77,6 @@ jobs:
             type=semver,pattern={{major}}.{{minor}},value=${{ steps.bump.outputs.new_tag }}
             type=semver,pattern={{major}},value=${{ steps.bump.outputs.new_tag }}
             type=ref,event=branch
-            type=ref,event=pr
             type=raw,value=latest
 
       - name: Build and push Docker image
@@ -78,26 +84,87 @@ jobs:
         with:
           context: .
           file: ./build/Dockerfile
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             VERSION=${{ steps.bump.outputs.new_tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
           format: 'github'
           output: 'dependency-results.sbom.json'
-          image-ref: ${{ env.IMAGE_SOURCE }}
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.bump.outputs.new_tag }}
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
           github-pat: ${{ secrets.GITHUB_TOKEN }}
 
+  release:
+    runs-on: ubuntu-latest
+    needs: build-and-deploy
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: 'stable'
+          cache: true
+
+      - name: Build binaries
+        env:
+          VERSION: ${{ needs.build-and-deploy.outputs.version }}
+        run: |
+          # Create release directory
+          mkdir -p release
+
+          # Create VERSION file
+          echo "${VERSION}" > release/VERSION
+
+          # Set version for builds
+          LDFLAGS="-X video-gallery/cmd.Version=${VERSION}"
+
+          # Build for multiple platforms
+          GOOS_LIST=("linux" "darwin" "windows")
+          GOARCH_LIST=("amd64" "arm64")
+          
+          for GOOS in "${GOOS_LIST[@]}"; do
+            for GOARCH in "${GOARCH_LIST[@]}"; do
+              output="release/video-gallery-${GOOS}-${GOARCH}"
+              
+              if [ "$GOOS" = "windows" ]; then
+                output="${output}.exe"
+              fi
+              
+              echo "Building for ${GOOS}/${GOARCH}..."
+              GOOS=$GOOS GOARCH=$GOARCH go build \
+                -ldflags "${LDFLAGS}" \
+                -o "$output" .
+            done
+          done
+
+      - name: Create checksums
+        run: |
+          cd release
+          sha256sum * > checksums.txt
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          name: Release ${{ needs.build-and-deploy.outputs.version }}
+          tag_name: ${{ needs.build-and-deploy.outputs.version }}
+
   cleanup:
     runs-on: ubuntu-latest
-    needs: build
+    needs: build-and-deploy
     permissions:
       packages: write
 

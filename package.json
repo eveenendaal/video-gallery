@@ -7,6 +7,9 @@
   "scripts": {
     "build": "sass assets/scss/styles.scss public/styles.css"
   },
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "dependencies": {
     "bulma": "^0.9.4",
     "sass": "^1.66.1"

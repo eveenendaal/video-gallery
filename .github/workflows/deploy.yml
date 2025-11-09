@@ -92,17 +92,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Make container package public
-        run: |
-          gh api \
-            --method PATCH \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            /user/packages/container/${{ github.event.repository.name }}/versions/${{ steps.meta.outputs.version }}/visibility \
-            -f visibility='public' || echo "Failed to set package visibility, you may need to set it manually in GitHub settings"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:

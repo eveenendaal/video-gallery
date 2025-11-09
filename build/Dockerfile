@@ -1,4 +1,19 @@
-# Build stage
+# Frontend build stage
+FROM node:24-alpine AS frontend-builder
+
+WORKDIR /frontend
+
+# Copy package files first for better caching
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+# Copy source files needed for build
+COPY assets/scss ./assets/scss
+
+# Build frontend (compile SCSS to CSS)
+RUN npm run build
+
+# Backend build stage
 FROM golang:1.25-alpine3.22 AS builder
 
 WORKDIR /build
@@ -9,6 +24,9 @@ RUN go mod download
 
 # Copy the source code
 COPY . .
+
+# Copy built frontend assets from frontend-builder
+COPY --from=frontend-builder /frontend/public ./public
 
 # Build argument for version
 ARG VERSION=dev

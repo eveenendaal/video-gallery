@@ -32,7 +32,7 @@ COPY --from=frontend-builder /frontend/public ./public
 ARG VERSION=dev
 
 # Build the application with version injection and optimization flags
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-s -w -X video-gallery/cmd.Version=${VERSION}" \
     -trimpath \
     -o video-gallery

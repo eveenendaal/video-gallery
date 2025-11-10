@@ -2,6 +2,21 @@
 # This builds a containerized video streaming and gallery application
 # with a Go backend and compiled frontend assets.
 
+# Frontend build stage
+FROM node:24-alpine AS frontend-builder
+
+WORKDIR /frontend
+
+# Copy package files first for better caching
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+# Copy source files needed for build
+COPY assets/scss ./assets/scss
+
+# Build frontend (compile SCSS to CSS)
+RUN npm run build
+
 # Backend build stage
 FROM golang:1.25-alpine3.22 AS builder
 
@@ -17,8 +32,8 @@ RUN go mod download
 # Copy the source code
 COPY . .
 
-# Note: Frontend assets (public/) should be built by the CI workflow
-# and copied into the build context before docker build is invoked
+# Copy built frontend assets from frontend-builder
+COPY --from=frontend-builder /frontend/public ./public
 
 # Build argument for version
 ARG VERSION=dev

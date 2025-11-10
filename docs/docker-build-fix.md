@@ -13,13 +13,12 @@ The GitHub Actions workflow in `.github/workflows/deploy.yml` was experiencing "
 
 **Fix**: Added `RUN apk add --no-cache ca-certificates` in the builder stage before `go mod download`
 
-### 2. Redundant Frontend Build Stage
-**Issue**: The Dockerfile had a separate Node.js stage that rebuilt frontend assets
-- This duplicated work already done by the GitHub Actions workflow
-- Could cause inconsistencies between workflow-built and Docker-built assets
-- Increased build time unnecessarily
-
-**Fix**: Removed the frontend-builder stage and added a comment explaining that frontend assets should be pre-built by the CI workflow
+### 2. Docker Build Configuration
+**Change**: Frontend build is now handled entirely within the Docker multi-stage build
+- Frontend assets are built in a separate Node.js stage within the Dockerfile
+- No need for workflow to pre-build frontend assets
+- Docker Buildx has been removed for simpler build process
+- Multi-platform builds (amd64/arm64) removed for compatibility
 
 ## Changes Made
 
@@ -36,39 +35,39 @@ RUN apk add --no-cache ca-certificates
 WORKDIR /build
 ```
 
-Removed entire frontend-builder stage:
+Frontend build is now handled in the Dockerfile:
 ```dockerfile
-# REMOVED - Redundant with workflow build
+# Frontend build stage
 FROM node:24-alpine AS frontend-builder
 WORKDIR /frontend
 COPY package*.json ./
 RUN npm ci --omit=dev
 COPY assets/scss ./assets/scss
 RUN npm run build
+
+# Backend build stage
+FROM golang:1.25-alpine3.22 AS builder
+# ...
+COPY --from=frontend-builder /frontend/public ./public
 ```
 
 ## How the Build Process Works Now
 
-### 1. GitHub Actions Workflow (deploy.yml)
-```yaml
-- name: Build Styles
-  run: npm run build
-```
-This step compiles SCSS to CSS in the `public/` directory BEFORE Docker build
+### 1. Docker Multi-Stage Build
+The Dockerfile handles both frontend and backend builds:
+- **Frontend stage**: Builds SCSS to CSS using Node.js
+- **Backend stage**: Builds Go application and copies frontend assets from the frontend stage
 
-### 2. Docker Build
-The Dockerfile now expects `public/` directory to already contain the compiled CSS:
-```dockerfile
-COPY . .
-# Note: Frontend assets (public/) should be built by the CI workflow
-# and copied into the build context before docker build is invoked
-```
+### 2. GitHub Actions Workflow (deploy.yml)
+The workflow is simplified:
+- No Docker Buildx setup
+- No Node.js setup or frontend build
+- Docker build handles everything internally
 
-### 3. Multi-Platform Build
-The workflow uses Docker Buildx to build for both AMD64 and ARM64:
-```yaml
-platforms: linux/amd64,linux/arm64
-```
+### 3. Single Platform Build
+The build now targets a single platform (the runner's native platform):
+- Docker Buildx has been removed
+- Simpler build process without multi-platform complexity
 
 ## Why "Manifest Unknown" Errors Occur
 
@@ -86,9 +85,8 @@ platforms: linux/amd64,linux/arm64
 After these changes, the build should succeed if:
 
 - ✅ Go version in Dockerfile matches go.mod
-- ✅ Frontend assets are built in workflow before Docker build
+- ✅ Frontend assets are built within Docker multi-stage build
 - ✅ CA certificates are installed for secure module downloads
-- ✅ Docker Buildx is set up for multi-platform builds
 - ✅ Authentication to GHCR is configured with proper permissions
 - ✅ Image naming follows the pattern: `ghcr.io/${{ github.repository_owner }}/repo-name:tag`
 
@@ -97,14 +95,10 @@ After these changes, the build should succeed if:
 To test the Docker build locally:
 
 ```bash
-# 1. Build frontend assets first
-npm ci
-npm run build
-
-# 2. Build Docker image
+# 1. Build Docker image (handles frontend build internally)
 docker build -f build/Dockerfile -t video-gallery:test --build-arg VERSION=test .
 
-# 3. Run the container
+# 2. Run the container
 docker run -p 8080:8080 \
   -e BUCKET_NAME=your-bucket \
   -e SECRET_KEY=your-secret \
@@ -122,7 +116,7 @@ After these fixes:
    - Major.minor version (e.g., `1.2`)
    - Major version (e.g., `1`)
    - Branch name (e.g., `master`)
-3. Images will support both AMD64 and ARM64 architectures
+3. Images will be built for the runner's native platform (typically linux/amd64)
 4. The manifest will be available immediately after push
 5. Users can pull the image: `docker pull ghcr.io/eveenendaal/video-gallery:latest`
 
@@ -131,16 +125,8 @@ After these fixes:
 ### GitHub Container Registry Authentication
 The workflow uses `GITHUB_TOKEN` for authentication, which automatically has the required `packages: write` permission specified in the workflow.
 
-### Multi-Platform Builds
-Docker Buildx handles creating the manifest list automatically when building for multiple platforms. The manifest includes references to both AMD64 and ARM64 images.
-
-### Caching
-The workflow uses GitHub Actions cache for Docker layers:
-```yaml
-cache-from: type=gha
-cache-to: type=gha,mode=max
-```
-This speeds up subsequent builds significantly.
+### Build Configuration
+The build uses a standard Docker build without Buildx for simplicity and compatibility. Multi-stage builds are used to optimize the final image size by separating frontend and backend build stages.
 
 ## Troubleshooting
 
@@ -157,5 +143,5 @@ If you still encounter "manifest unknown" errors after these changes:
 
 - [GitHub Container Registry Documentation](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
 - [Docker Build Push Action](https://github.com/docker/build-push-action)
-- [Docker Buildx Multi-platform](https://docs.docker.com/build/building/multi-platform/)
+- [Docker Multi-stage Builds](https://docs.docker.com/build/building/multi-stage/)
 - [Go Official Docker Images](https://hub.docker.com/_/golang)

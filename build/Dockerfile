@@ -1,3 +1,7 @@
+# Multi-stage Dockerfile for Video Gallery application
+# This builds a containerized video streaming and gallery application
+# with a Go backend and compiled frontend assets.
+
 # Frontend build stage
 FROM node:24-alpine AS frontend-builder
 

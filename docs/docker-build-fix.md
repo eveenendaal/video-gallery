@@ -6,12 +6,12 @@ The GitHub Actions workflow in `.github/workflows/deploy.yml` was experiencing "
 
 ## Root Causes Identified
 
-### 1. Invalid Go Version in Dockerfile
-**Issue**: The Dockerfile referenced `golang:1.25-alpine3.22` which doesn't exist.
-- Go 1.25 hasn't been released yet
-- The project's `go.mod` specifies Go 1.24
+### 1. Missing CA Certificates in Builder Stage
+**Issue**: Alpine Linux base images don't include CA certificates by default
+- This prevented Go from downloading modules securely via HTTPS
+- Would cause TLS certificate verification failures
 
-**Fix**: Changed to `golang:1.24-alpine3.22` to match the project's Go version
+**Fix**: Added `RUN apk add --no-cache ca-certificates` in the builder stage before `go mod download`
 
 ### 2. Redundant Frontend Build Stage
 **Issue**: The Dockerfile had a separate Node.js stage that rebuilt frontend assets
@@ -21,24 +21,19 @@ The GitHub Actions workflow in `.github/workflows/deploy.yml` was experiencing "
 
 **Fix**: Removed the frontend-builder stage and added a comment explaining that frontend assets should be pre-built by the CI workflow
 
-### 3. Missing CA Certificates in Builder Stage
-**Issue**: Alpine Linux base images don't include CA certificates by default
-- This prevented Go from downloading modules securely via HTTPS
-- Would cause TLS certificate verification failures
-
-**Fix**: Added `RUN apk add --no-cache ca-certificates` in the builder stage before `go mod download`
-
 ## Changes Made
 
 ### Dockerfile Changes (`build/Dockerfile`)
 
 ```dockerfile
-# Before - WRONG VERSION
+# Before - Missing CA certificates
 FROM golang:1.25-alpine3.22 AS builder
+WORKDIR /build
 
-# After - CORRECT VERSION + CA CERTS
-FROM golang:1.24-alpine3.22 AS builder
+# After - Added CA certificates for secure module downloads
+FROM golang:1.25-alpine3.22 AS builder
 RUN apk add --no-cache ca-certificates
+WORKDIR /build
 ```
 
 Removed entire frontend-builder stage:

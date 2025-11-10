@@ -3,7 +3,7 @@
 # with a Go backend and compiled frontend assets.
 
 # Backend build stage
-FROM golang:1.24-alpine3.22 AS builder
+FROM golang:1.25-alpine3.22 AS builder
 
 # Install CA certificates for downloading Go modules
 RUN apk add --no-cache ca-certificates

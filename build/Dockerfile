@@ -44,6 +44,14 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 # Final stage
 FROM alpine:3.22
 
+# OCI labels
+LABEL org.opencontainers.image.title="video-gallery"
+LABEL org.opencontainers.image.description="Video gallery and streaming application"
+LABEL org.opencontainers.image.authors="Eric Veenendaal <eric@ericveenendaal.com>"
+LABEL org.opencontainers.image.source="https://github.com/eveenendaal/video-gallery"
+LABEL org.opencontainers.image.licenses="GPL-3.0"
+LABEL org.opencontainers.image.documentation="https://github.com/eveenendaal/video-gallery/blob/master/README.md"
+
 # Install CA certificates for HTTPS requests
 RUN apk add --no-cache ca-certificates
 

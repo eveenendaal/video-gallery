@@ -8,6 +8,7 @@ on:
       - 'assets/**'
       - '**/*.go'
       - '*'
+      - 'build/Dockerfile'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
 

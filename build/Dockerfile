@@ -69,8 +69,8 @@ WORKDIR /app
 COPY --from=builder --chmod=755 /build/video-gallery /app/video-gallery
 
 # Copy required application files with appropriate permissions
-COPY --from=builder --chmod=644 /build/assets /app/assets
-COPY --from=builder --chmod=644 /build/public /app/public
+COPY --from=builder /build/assets /app/assets
+COPY --from=builder /build/public /app/public
 
 # Change ownership to non-root user
 RUN chown -R appuser:appuser /app

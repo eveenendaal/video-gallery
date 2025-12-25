@@ -16,9 +16,11 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"video-gallery/pkg/config"
 	"video-gallery/pkg/services"
 
 	"cloud.google.com/go/storage"
+	"google.golang.org/api/iterator"
 )
 
 // Command options
@@ -36,9 +38,18 @@ func newGenerateThumbnailsCmd() *cobra.Command {
 		Short: "Generate thumbnails for videos without existing thumbnails",
 		Long:  `Generate thumbnails for videos that don't have existing thumbnails in the gallery.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			cfg, err := LoadConfig()
-			if err != nil {
-				log.Fatalf("Failed to load configuration: %v", err)
+			// For thumbnail generation, we only need BUCKET_NAME, not SECRET_KEY
+			// So we load config with a lenient approach
+			bucketName := os.Getenv("BUCKET_NAME")
+			if bucketName == "" {
+				log.Fatalf("BUCKET_NAME environment variable not set")
+			}
+
+			// Create a minimal config just for thumbnail generation
+			cfg := &config.Config{
+				BucketName: bucketName,
+				SecretKey:  "", // Not needed for thumbnail generation
+				Port:       "8080",
 			}
 			services.InitService(cfg)
 			generateThumbnails()
@@ -60,9 +71,6 @@ func generateThumbnails() {
 	if err := checkFFmpeg(); err != nil {
 		log.Fatalf("FFmpeg is required but not found: %v", err)
 	}
-
-	// 1. Get all galleries and their videos
-	categories := services.GetCategories()
 
 	// Create output directory if it doesn't exist
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
@@ -87,96 +95,161 @@ func generateThumbnails() {
 
 	bucket := client.Bucket(bucketName)
 
-	// Process each gallery
+	// Scan bucket directly to find videos and existing thumbnails
+	fmt.Println("Scanning bucket for videos without thumbnails...")
+
+	videoExtensions := []string{".mp4", ".m4v", ".webm", ".mov", ".avi"}
+	imageExtensions := []string{".jpg", ".jpeg", ".png"}
+
+	// Map to track which videos have thumbnails
+	thumbnailsMap := make(map[string]bool)
+
+	// First pass: find all thumbnails
+	it := bucket.Objects(ctx, nil)
+	for {
+		obj, err := it.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			log.Printf("Error iterating objects: %v", err)
+			continue
+		}
+
+		// Check if file has structure: Category/Gallery/File
+		parts := strings.Split(obj.Name, "/")
+		if len(parts) != 3 || parts[2] == "" {
+			continue
+		}
+
+		filename := parts[2]
+
+		// Check if it's an image (thumbnail)
+		isImage := false
+		for _, ext := range imageExtensions {
+			if strings.HasSuffix(filename, ext) {
+				isImage = true
+				break
+			}
+		}
+
+		if isImage {
+			// Store the base path without extension
+			thumbnailsMap[obj.Name[:len(obj.Name)-len(filepath.Ext(obj.Name))]] = true
+		}
+	}
+
+	// Second pass: find all videos and check if they need thumbnails
+	it = bucket.Objects(ctx, nil)
+
 	totalVideos := 0
 	totalProcessed := 0
 	missingThumbnails := 0
 
-	fmt.Println("Scanning for videos without thumbnails...")
+	for {
+		obj, err := it.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			log.Printf("Error iterating objects: %v", err)
+			continue
+		}
 
-	// Process each gallery with videos that need thumbnails
-	for _, category := range categories {
-		for _, gallery := range category.Galleries {
-			fmt.Printf("Gallery: %s\n", gallery.Name)
+		// Check if file has structure: Category/Gallery/File
+		parts := strings.Split(obj.Name, "/")
+		if len(parts) != 3 || parts[2] == "" {
+			continue
+		}
 
-			for _, video := range gallery.Videos {
-				totalVideos++
+		category := parts[0]
+		gallery := parts[1]
+		filename := parts[2]
 
-				// Check if thumbnail exists
-				thumbnailNeeded := video.Thumbnail == nil || *video.Thumbnail == "" || forceRegenerate
+		// Check if it's a video
+		isVideo := false
+		for _, ext := range videoExtensions {
+			if strings.HasSuffix(filename, ext) {
+				isVideo = true
+				break
+			}
+		}
 
-				if thumbnailNeeded {
-					missingThumbnails++
-					fmt.Printf("  Generating thumbnail for: %s\n", video.Name)
+		if !isVideo {
+			continue
+		}
 
-					// Generate thumbnail path from video path
-					videoPath := video.Url
-					thumbnailPath := generateThumbnailPath(videoPath)
+		totalVideos++
+		videoPath := obj.Name
 
-					// Check file size before downloading if max size limit is set
-					if maxSizeMB > 0 {
-						fileSize, err := getVideoSize(ctx, bucket, videoPath)
-						if err != nil {
-							fmt.Printf("    Error checking video size: %v\n", err)
-							continue
-						}
+		// Get base name without extension
+		basePath := videoPath[:len(videoPath)-len(filepath.Ext(videoPath))]
 
-						// Convert size to MB
-						videoSizeMB := fileSize / (1024 * 1024)
+		// Check if thumbnail exists
+		thumbnailNeeded := !thumbnailsMap[basePath] || forceRegenerate
 
-						if videoSizeMB > int64(maxSizeMB) {
-							fmt.Printf("    Skipping video %s: size %d MB exceeds limit of %d MB\n",
-								video.Name, videoSizeMB, maxSizeMB)
-							continue
-						}
-					}
+		if thumbnailNeeded {
+			missingThumbnails++
+			fmt.Printf("Gallery: %s/%s\n", category, gallery)
+			fmt.Printf("  Generating thumbnail for: %s\n", filename)
 
-					// Generate safe filenames for local storage
-					videoBaseName := getSafeFilename(videoPath)
-					thumbnailBaseName := getSafeFilename(thumbnailPath)
+			thumbnailPath := basePath + ".jpg"
 
-					// Download video to temp location with safe filename
-					tmpVideoPath := filepath.Join(outputDir, videoBaseName)
-					if err := downloadFile(ctx, bucket, videoPath, tmpVideoPath); err != nil {
-						fmt.Printf("    Error downloading video: %v\n", err)
-						continue
-					}
+			// Check file size before downloading if max size limit is set
+			if maxSizeMB > 0 {
+				videoSizeMB := obj.Size / (1024 * 1024)
 
-					// Create thumbnail using FFmpeg with safe filename
-					tmpThumbnailPath := filepath.Join(outputDir, thumbnailBaseName)
-					if err := createThumbnailWithFFmpeg(tmpVideoPath, tmpThumbnailPath); err != nil {
-						fmt.Printf("    Error creating thumbnail: %v\n", err)
-						// Clean up video file
-						if err := os.Remove(tmpVideoPath); err != nil {
-							log.Printf("Warning: failed to remove temp file %s: %v", tmpVideoPath, err)
-						}
-						continue
-					}
-
-					// Upload thumbnail to bucket
-					if err := uploadFile(ctx, bucket, tmpThumbnailPath, thumbnailPath); err != nil {
-						fmt.Printf("    Error uploading thumbnail: %v\n", err)
-						// Clean up files
-						if err := os.Remove(tmpVideoPath); err != nil {
-							log.Printf("Warning: failed to remove temp file %s: %v", tmpVideoPath, err)
-						}
-						if err := os.Remove(tmpThumbnailPath); err != nil {
-							log.Printf("Warning: failed to remove temp file %s: %v", tmpThumbnailPath, err)
-						}
-						continue
-					}
-
-					fmt.Printf("    Created thumbnail: %s\n", thumbnailPath)
-					totalProcessed++
-
-					// Clean up temporary files
-					if err := os.Remove(tmpVideoPath); err != nil {
-						log.Printf("Warning: failed to remove temp file %s: %v", tmpVideoPath, err)
-					}
-					if err := os.Remove(tmpThumbnailPath); err != nil {
-						log.Printf("Warning: failed to remove temp file %s: %v", tmpThumbnailPath, err)
-					}
+				if videoSizeMB > int64(maxSizeMB) {
+					fmt.Printf("    Skipping video %s: size %d MB exceeds limit of %d MB\n",
+						filename, videoSizeMB, maxSizeMB)
+					continue
 				}
+			}
+
+			// Generate safe filenames for local storage
+			videoBaseName := getSafeFilename(videoPath)
+			thumbnailBaseName := getSafeFilename(thumbnailPath)
+
+			// Download video to temp location with safe filename
+			tmpVideoPath := filepath.Join(outputDir, videoBaseName)
+			if err := downloadFile(ctx, bucket, videoPath, tmpVideoPath); err != nil {
+				fmt.Printf("    Error downloading video: %v\n", err)
+				continue
+			}
+
+			// Create thumbnail using FFmpeg with safe filename
+			tmpThumbnailPath := filepath.Join(outputDir, thumbnailBaseName)
+			if err := createThumbnailWithFFmpeg(tmpVideoPath, tmpThumbnailPath); err != nil {
+				fmt.Printf("    Error creating thumbnail: %v\n", err)
+				// Clean up video file
+				if err := os.Remove(tmpVideoPath); err != nil {
+					log.Printf("Warning: failed to remove temp file %s: %v", tmpVideoPath, err)
+				}
+				continue
+			}
+
+			// Upload thumbnail to bucket
+			if err := uploadFile(ctx, bucket, tmpThumbnailPath, thumbnailPath); err != nil {
+				fmt.Printf("    Error uploading thumbnail: %v\n", err)
+				// Clean up files
+				if err := os.Remove(tmpVideoPath); err != nil {
+					log.Printf("Warning: failed to remove temp file %s: %v", tmpVideoPath, err)
+				}
+				if err := os.Remove(tmpThumbnailPath); err != nil {
+					log.Printf("Warning: failed to remove temp file %s: %v", tmpThumbnailPath, err)
+				}
+				continue
+			}
+
+			fmt.Printf("    Created thumbnail: %s\n", thumbnailPath)
+			totalProcessed++
+
+			// Clean up temporary files
+			if err := os.Remove(tmpVideoPath); err != nil {
+				log.Printf("Warning: failed to remove temp file %s: %v", tmpVideoPath, err)
+			}
+			if err := os.Remove(tmpThumbnailPath); err != nil {
+				log.Printf("Warning: failed to remove temp file %s: %v", tmpThumbnailPath, err)
 			}
 		}
 	}

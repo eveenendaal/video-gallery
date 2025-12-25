@@ -5,6 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"image"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 	"log"
 	"net/http"
@@ -228,6 +231,19 @@ func generateThumbnails() {
 				continue
 			}
 
+			// Validate the thumbnail isn't just a solid color
+			if err := validateThumbnail(tmpThumbnailPath); err != nil {
+				fmt.Printf("    Warning: thumbnail validation failed: %v\n", err)
+				// Clean up files
+				if err := os.Remove(tmpVideoPath); err != nil {
+					log.Printf("Warning: failed to remove temp file %s: %v", tmpVideoPath, err)
+				}
+				if err := os.Remove(tmpThumbnailPath); err != nil {
+					log.Printf("Warning: failed to remove temp file %s: %v", tmpThumbnailPath, err)
+				}
+				continue
+			}
+
 			// Upload thumbnail to bucket
 			if err := uploadFile(ctx, bucket, tmpThumbnailPath, thumbnailPath); err != nil {
 				fmt.Printf("    Error uploading thumbnail: %v\n", err)
@@ -361,13 +377,14 @@ func createThumbnailWithFFmpeg(videoPath, thumbnailPath string) error {
 	timeStr := fmt.Sprintf("00:00:%02d.%03d", seconds, milliseconds)
 
 	// Use FFmpeg to extract a frame at the specified time
+	// -ss before -i is fast, then read a few frames to get past any blank/grey frames
 	cmd := exec.Command(
 		"ffmpeg",
+		"-ss", timeStr, // Seek before input (faster, approximate)
 		"-i", videoPath, // Input file
-		"-ss", timeStr, // Seek to time position
-		"-vframes", "1", // Extract only one frame
-		"-q:v", "2", // Quality (lower is better)
-		"-f", "image2", // Force image2 format
+		"-vf", "thumbnail", // Use thumbnail filter to select best frame
+		"-frames:v", "1", // Extract only one frame
+		"-q:v", "2", // Quality (lower is better, 2-5 is good for JPEG)
 		"-y",          // Overwrite without asking
 		thumbnailPath, // Output file
 	)
@@ -620,4 +637,78 @@ func uploadFile(ctx context.Context, bucket *storage.BucketHandle, src, dst stri
 
 	fmt.Println("Done")
 	return nil
+}
+
+// validateThumbnail checks if a thumbnail is valid (not a solid color)
+func validateThumbnail(thumbnailPath string) error {
+	// Open the image file
+	f, err := os.Open(thumbnailPath)
+	if err != nil {
+		return fmt.Errorf("failed to open thumbnail: %v", err)
+	}
+	defer f.Close()
+
+	// Decode the image
+	img, _, err := image.Decode(f)
+	if err != nil {
+		return fmt.Errorf("failed to decode thumbnail: %v", err)
+	}
+
+	// Sample pixels to check for color variation
+	// We'll sample a grid of points across the image
+	bounds := img.Bounds()
+	width := bounds.Dx()
+	height := bounds.Dy()
+
+	// Sample 100 points (10x10 grid)
+	sampleSize := 10
+	stepX := width / sampleSize
+	stepY := height / sampleSize
+
+	if stepX == 0 {
+		stepX = 1
+	}
+	if stepY == 0 {
+		stepY = 1
+	}
+
+	// Get the first pixel's color as reference
+	firstColor := img.At(bounds.Min.X, bounds.Min.Y)
+	r1, g1, b1, a1 := firstColor.RGBA()
+
+	// Check if all sampled pixels are the same color
+	differentPixels := 0
+	totalSamples := 0
+
+	for y := bounds.Min.Y; y < bounds.Max.Y; y += stepY {
+		for x := bounds.Min.X; x < bounds.Max.X; x += stepX {
+			totalSamples++
+			r2, g2, b2, a2 := img.At(x, y).RGBA()
+
+			// If any color component differs by more than a small threshold, count it as different
+			// Using a threshold to account for compression artifacts
+			threshold := uint32(256) // About 1 unit difference in 8-bit color
+			if abs(int(r1)-int(r2)) > int(threshold) ||
+				abs(int(g1)-int(g2)) > int(threshold) ||
+				abs(int(b1)-int(b2)) > int(threshold) ||
+				abs(int(a1)-int(a2)) > int(threshold) {
+				differentPixels++
+			}
+		}
+	}
+
+	// If less than 1% of pixels are different, consider it a solid color
+	if totalSamples > 0 && float64(differentPixels)/float64(totalSamples) < 0.01 {
+		return fmt.Errorf("thumbnail appears to be a solid color (only %d/%d sampled pixels differ)", differentPixels, totalSamples)
+	}
+
+	return nil
+}
+
+// abs returns the absolute value of an integer
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }

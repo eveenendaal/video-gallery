@@ -60,7 +60,7 @@ func newGenerateThumbnailsCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&outputDir, "output-dir", "o", "thumbnails", "Directory to store temporary thumbnails")
 	cmd.Flags().BoolVarP(&forceRegenerate, "force", "f", false, "Force regeneration of all thumbnails, even if they exist")
 	cmd.Flags().IntVarP(&frameTimeMs, "time", "t", 1000, "Time in milliseconds where to extract the thumbnail frame")
-	cmd.Flags().IntVarP(&maxSizeMB, "max-size", "m", 0, "Maximum video size in MB to process (0 means no limit)")
+	cmd.Flags().IntVarP(&maxSizeMB, "max-size", "m", 1024, "Maximum video size in MB to process (0 means no limit)")
 
 	return cmd
 }

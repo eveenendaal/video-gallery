@@ -10,7 +10,6 @@ import (
 	_ "image/png"
 	"io"
 	"log"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -80,14 +79,22 @@ func (s *Service) GenerateThumbnailWithProgress(videoPath string, timeMs int, pr
 	if err := downloadFile(ctx, bucket, videoPath, tmpVideoPath); err != nil {
 		return fmt.Errorf("error downloading video: %v", err)
 	}
-	defer os.Remove(tmpVideoPath)
+	defer func() {
+		if err := os.Remove(tmpVideoPath); err != nil {
+			log.Printf("Warning: failed to remove temp file: %v", err)
+		}
+	}()
 
 	sendProgress("Generating thumbnail", 60)
 	tmpThumbnailPath := filepath.Join(outputDir, thumbnailBaseName)
 	if err := createThumbnailWithFFmpeg(tmpVideoPath, tmpThumbnailPath, timeMs); err != nil {
 		return fmt.Errorf("error creating thumbnail: %v", err)
 	}
-	defer os.Remove(tmpThumbnailPath)
+	defer func() {
+		if err := os.Remove(tmpThumbnailPath); err != nil {
+			log.Printf("Warning: failed to remove temp file: %v", err)
+		}
+	}()
 
 	sendProgress("Validating thumbnail", 80)
 	if err := validateThumbnail(tmpThumbnailPath); err != nil {
@@ -376,28 +383,21 @@ func createThumbnailWithFFmpeg(videoPath, thumbnailPath string, timeMs int) erro
 }
 
 func downloadFile(ctx context.Context, bucket *storage.BucketHandle, src, dst string) error {
-	f, err := os.Create(dst)
+	// Validate destination path to prevent path traversal
+	cleanDst := filepath.Clean(dst)
+	if !filepath.IsAbs(cleanDst) {
+		return fmt.Errorf("destination must be absolute path")
+	}
+
+	f, err := os.Create(cleanDst)
 	if err != nil {
 		return fmt.Errorf("os.Create: %v", err)
 	}
 	defer f.Close()
 
+	// Only allow GCS bucket sources, no HTTP downloads
 	if strings.HasPrefix(src, "http") {
-		resp, err := http.Get(src)
-		if err != nil {
-			return fmt.Errorf("http.Get(%q): %v", src, err)
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("bad status code: %d", resp.StatusCode)
-		}
-
-		if _, err := io.Copy(f, resp.Body); err != nil {
-			return fmt.Errorf("io.Copy: %v", err)
-		}
-
-		return nil
+		return fmt.Errorf("HTTP downloads not allowed")
 	}
 
 	src = strings.TrimPrefix(src, "/")
@@ -416,7 +416,13 @@ func downloadFile(ctx context.Context, bucket *storage.BucketHandle, src, dst st
 }
 
 func uploadFile(ctx context.Context, bucket *storage.BucketHandle, src, dst string) error {
-	data, err := os.ReadFile(src)
+	// Validate source path to prevent path traversal
+	cleanSrc := filepath.Clean(src)
+	if !filepath.IsAbs(cleanSrc) {
+		return fmt.Errorf("source path must be absolute")
+	}
+
+	data, err := os.ReadFile(cleanSrc)
 	if err != nil {
 		return fmt.Errorf("os.ReadFile: %v", err)
 	}
@@ -442,7 +448,13 @@ func uploadFile(ctx context.Context, bucket *storage.BucketHandle, src, dst stri
 }
 
 func validateThumbnail(thumbnailPath string) error {
-	f, err := os.Open(thumbnailPath)
+	// Validate path to prevent path traversal
+	cleanPath := filepath.Clean(thumbnailPath)
+	if !filepath.IsAbs(cleanPath) {
+		return fmt.Errorf("thumbnail path must be absolute")
+	}
+
+	f, err := os.Open(cleanPath)
 	if err != nil {
 		return fmt.Errorf("failed to open thumbnail: %v", err)
 	}

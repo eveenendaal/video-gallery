@@ -55,8 +55,8 @@ LABEL org.opencontainers.image.source="https://github.com/eveenendaal/video-gall
 LABEL org.opencontainers.image.licenses="GPL-3.0"
 LABEL org.opencontainers.image.documentation="https://github.com/eveenendaal/video-gallery/blob/master/README.md"
 
-# Install CA certificates for HTTPS requests
-RUN apk add --no-cache ca-certificates
+# Install CA certificates for HTTPS requests and ffmpeg for thumbnail generation
+RUN apk add --no-cache ca-certificates ffmpeg
 
 # Create non-root user for running the application
 RUN addgroup -g 1000 appuser && \

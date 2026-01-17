@@ -40,7 +40,7 @@ func AdminHandler(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Template execution error: %v", err), http.StatusInternalServerError)
+		http.Error(w, "Template execution error", http.StatusInternalServerError)
 		log.Printf("Template execution error: %v", err)
 		return
 	}

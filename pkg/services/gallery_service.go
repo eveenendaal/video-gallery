@@ -2,7 +2,7 @@ package services
 
 import (
 	"context"
-	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -162,7 +162,7 @@ func (s *Service) GetGalleriesInternal() []models.Gallery {
 			g.Videos = append(g.Videos, video)
 		} else {
 			// Generate Hash for gallery URL
-			hash := sha1.New()
+			hash := sha256.New()
 			hash.Write([]byte(galleryName + s.config.SecretKey))
 			hashStr := base64.URLEncoding.EncodeToString(hash.Sum(nil))[0:4]
 

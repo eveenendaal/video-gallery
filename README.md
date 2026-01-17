@@ -85,6 +85,8 @@ For the Admin interface use:
 GET /{SECRET_KEY}/admin
 ```
 
+**Security Note:** All admin endpoints (page and API) are protected by the secret key in the URL path. The admin API endpoints follow the pattern `/{SECRET_KEY}/admin/api/*`, ensuring that only users with knowledge of the secret key can perform administrative operations.
+
 You can navigate to all the galleries from the HTML index page.  After clicking into one of these galleries, the application open a new page specifically for that gallery. Each gallery is given its own unique prefix. This means you'll be able to share an individual gallery with someone without revealing the path to all the galleries.
 
 ### Admin Interface

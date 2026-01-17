@@ -34,4 +34,5 @@ type Index struct {
 // Admin represents the admin page data
 type Admin struct {
 	Categories []Category
+	SecretKey  string
 }

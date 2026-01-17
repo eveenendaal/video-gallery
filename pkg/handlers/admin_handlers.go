@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/eknkc/pug"
 
@@ -12,8 +13,18 @@ import (
 )
 
 // AdminHandler handles requests for the admin page
-func AdminHandler(w http.ResponseWriter, _ *http.Request) {
+func AdminHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("Generating Admin Page")
+
+	// Extract secret key from the URL path (format: /{SECRET_KEY}/admin)
+	path := r.URL.Path
+	secretKey := ""
+	if len(path) > 1 {
+		parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
+		if len(parts) > 0 {
+			secretKey = parts[0]
+		}
+	}
 
 	template, err := pug.CompileFile("./assets/templates/admin.pug", pug.Options{})
 	if err != nil {
@@ -24,6 +35,7 @@ func AdminHandler(w http.ResponseWriter, _ *http.Request) {
 
 	err = template.Execute(w, models.Admin{
 		Categories: services.GetCategories(),
+		SecretKey:  secretKey,
 	})
 
 	if err != nil {

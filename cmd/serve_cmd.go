@@ -38,12 +38,12 @@ func serveWebsite(cfg *config.Config) {
 	http.HandleFunc(fmt.Sprintf("/%s/index", cfg.SecretKey), handlers.GalleryHandler)
 	http.HandleFunc(fmt.Sprintf("/%s/feed", cfg.SecretKey), handlers.FeedHandler)
 	
-	// Admin routes
+	// Admin routes - all protected by secret key
 	http.HandleFunc(fmt.Sprintf("/%s/admin", cfg.SecretKey), handlers.AdminHandler)
-	http.HandleFunc("/admin/api/generate-thumbnail", handlers.GenerateThumbnailHandler)
-	http.HandleFunc("/admin/api/clear-thumbnail", handlers.ClearThumbnailHandler)
-	http.HandleFunc("/admin/api/bulk-generate-thumbnails", handlers.BulkGenerateThumbnailsHandler)
-	http.HandleFunc("/admin/api/bulk-clear-thumbnails", handlers.BulkClearThumbnailsHandler)
+	http.HandleFunc(fmt.Sprintf("/%s/admin/api/generate-thumbnail", cfg.SecretKey), handlers.GenerateThumbnailHandler)
+	http.HandleFunc(fmt.Sprintf("/%s/admin/api/clear-thumbnail", cfg.SecretKey), handlers.ClearThumbnailHandler)
+	http.HandleFunc(fmt.Sprintf("/%s/admin/api/bulk-generate-thumbnails", cfg.SecretKey), handlers.BulkGenerateThumbnailsHandler)
+	http.HandleFunc(fmt.Sprintf("/%s/admin/api/bulk-clear-thumbnails", cfg.SecretKey), handlers.BulkClearThumbnailsHandler)
 
 	// Start server
 	cfg.PrintServerStartMessage()

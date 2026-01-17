@@ -64,6 +64,8 @@ html
                                                 div.notification.is-hidden.mt-2(id=`status-${videoIndex}`)
 
         script.
+            const secretKey = '#{SecretKey}';
+            
             function generateThumbnail(videoPath, videoIndex) {
                 const timeMs = document.getElementById('time-' + videoIndex).value;
                 const statusDiv = document.getElementById('status-' + videoIndex);
@@ -71,7 +73,7 @@ html
                 statusDiv.classList.add('is-info');
                 statusDiv.textContent = 'Generating thumbnail...';
                 
-                fetch('/admin/api/generate-thumbnail', {
+                fetch(`/${secretKey}/admin/api/generate-thumbnail`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({videoPath: videoPath, timeMs: parseInt(timeMs)})
@@ -96,7 +98,7 @@ html
                 statusDiv.classList.add('is-info');
                 statusDiv.textContent = 'Clearing thumbnail...';
                 
-                fetch('/admin/api/clear-thumbnail', {
+                fetch(`/${secretKey}/admin/api/clear-thumbnail`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({thumbnailPath: thumbnailPath})
@@ -122,7 +124,7 @@ html
                 statusDiv.classList.add('is-info');
                 statusDiv.textContent = 'Generating all thumbnails... This may take several minutes.';
                 
-                fetch('/admin/api/bulk-generate-thumbnails', {
+                fetch(`/${secretKey}/admin/api/bulk-generate-thumbnails`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({timeMs: parseInt(timeMs), force: true})
@@ -151,7 +153,7 @@ html
                 statusDiv.classList.add('is-info');
                 statusDiv.textContent = 'Clearing all thumbnails...';
                 
-                fetch('/admin/api/bulk-clear-thumbnails', {
+                fetch(`/${secretKey}/admin/api/bulk-clear-thumbnails`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({})

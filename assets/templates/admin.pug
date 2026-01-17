@@ -16,10 +16,14 @@ html
                 h2.title.is-4 Bulk Operations
                 div.field.is-grouped
                     div.control
-                        input.input(type="number", id="bulkTimeMs", placeholder="Time in ms", value="1000", min="0", step="100")
+                        label.label(for="bulkTimeMs") Thumbnail Time (milliseconds)
+                        input.input(type="number", id="bulkTimeMs", placeholder="e.g. 1000 = 1 second", value="1000", min="0", step="100")
+                        p.help 1000ms = 1 second into the video
                     div.control
+                        label.label &nbsp;
                         button.button.is-warning(onclick="bulkClearThumbnails()") Clear All Thumbnails
                     div.control
+                        label.label &nbsp;
                         button.button.is-success(onclick="bulkGenerateThumbnails()") Generate All Thumbnails
                 div#bulkStatus.notification.is-hidden
             
@@ -53,14 +57,17 @@ html
                                                 else
                                                     span.tag.is-warning No Thumbnail
                                             div.column.is-5
-                                                div.field.has-addons
-                                                    div.control
-                                                        input.input(type="number", id="time-#{videoIndex}", placeholder="Time (ms)", value="1000", min="0", step="100")
-                                                    div.control
-                                                        button.button.is-info(onclick=`generateThumbnail('${video.VideoPath}', ${videoIndex})`) Generate
-                                                    if video.Thumbnail
+                                                div.field
+                                                    label.label(for="time-#{videoIndex}") Thumbnail Time (ms)
+                                                    div.field.has-addons
+                                                        div.control.is-expanded
+                                                            input.input(type="number", id="time-#{videoIndex}", placeholder="e.g. 1000 = 1 sec", value="1000", min="0", step="100")
                                                         div.control
-                                                            button.button.is-danger(onclick=`clearThumbnail('${video.ThumbnailPath}', ${videoIndex})`) Clear
+                                                            button.button.is-info(onclick=`generateThumbnail('${video.VideoPath}', ${videoIndex})`) Generate
+                                                        if video.Thumbnail
+                                                            div.control
+                                                                button.button.is-danger(onclick=`clearThumbnail('${video.ThumbnailPath}', ${videoIndex})`) Clear
+                                                    p.help 1000ms = 1 second into video
                                                 div.notification.is-hidden.mt-2(id=`status-${videoIndex}`)
 
         script.

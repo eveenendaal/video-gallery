@@ -33,7 +33,7 @@ func (s *Service) GenerateThumbnail(videoPath string, timeMs int) error {
 		return fmt.Errorf("FFmpeg is required but not found: %v", err)
 	}
 
-	outputDir := "/tmp/thumbnails"
+	outputDir := filepath.Join(os.TempDir(), "video-gallery-thumbnails")
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return fmt.Errorf("failed to create output directory: %v", err)
 	}
@@ -115,7 +115,7 @@ func (s *Service) BulkGenerateThumbnails(timeMs int, force bool) (int, int, erro
 		return 0, 0, fmt.Errorf("FFmpeg is required but not found: %v", err)
 	}
 
-	outputDir := "/tmp/thumbnails"
+	outputDir := filepath.Join(os.TempDir(), "video-gallery-thumbnails")
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return 0, 0, fmt.Errorf("failed to create output directory: %v", err)
 	}

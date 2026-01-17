@@ -20,6 +20,12 @@ import (
 	"google.golang.org/api/iterator"
 )
 
+const (
+	// colorDifferenceThreshold defines the minimum difference between color components
+	// to consider two pixels as different colors (accounts for compression artifacts)
+	colorDifferenceThreshold = uint32(256) // About 1 unit difference in 8-bit color
+)
+
 // GenerateThumbnail generates a thumbnail for a specific video
 func (s *Service) GenerateThumbnail(videoPath string, timeMs int) error {
 	// Check if ffmpeg is installed
@@ -75,9 +81,7 @@ func (s *Service) GenerateThumbnail(videoPath string, timeMs int) error {
 	}
 
 	// Clear cache so new thumbnail is visible
-	s.mu.Lock()
 	s.videoCache.Flush()
-	s.mu.Unlock()
 
 	return nil
 }
@@ -99,9 +103,7 @@ func (s *Service) ClearThumbnail(thumbnailPath string) error {
 	}
 
 	// Clear cache so thumbnail removal is visible
-	s.mu.Lock()
 	s.videoCache.Flush()
-	s.mu.Unlock()
 
 	return nil
 }
@@ -251,9 +253,7 @@ func (s *Service) BulkGenerateThumbnails(timeMs int, force bool) (int, int, erro
 	}
 
 	// Clear cache
-	s.mu.Lock()
 	s.videoCache.Flush()
-	s.mu.Unlock()
 
 	return totalProcessed, totalErrors, nil
 }
@@ -308,9 +308,7 @@ func (s *Service) BulkClearThumbnails() (int, error) {
 	}
 
 	// Clear cache
-	s.mu.Lock()
 	s.videoCache.Flush()
-	s.mu.Unlock()
 
 	return totalDeleted, nil
 }
@@ -326,9 +324,15 @@ func checkFFmpeg() error {
 }
 
 func createThumbnailWithFFmpeg(videoPath, thumbnailPath string, timeMs int) error {
-	seconds := timeMs / 1000
+	// Convert milliseconds to HH:MM:SS.mmm format
+	totalSeconds := timeMs / 1000
 	milliseconds := timeMs % 1000
-	timeStr := fmt.Sprintf("00:00:%02d.%03d", seconds, milliseconds)
+	
+	hours := totalSeconds / 3600
+	minutes := (totalSeconds % 3600) / 60
+	seconds := totalSeconds % 60
+	
+	timeStr := fmt.Sprintf("%02d:%02d:%02d.%03d", hours, minutes, seconds, milliseconds)
 
 	cmd := exec.Command(
 		"ffmpeg",
@@ -455,11 +459,11 @@ func validateThumbnail(thumbnailPath string) error {
 			totalSamples++
 			r2, g2, b2, a2 := img.At(x, y).RGBA()
 
-			threshold := uint32(256)
-			if abs(int(r1)-int(r2)) > int(threshold) ||
-				abs(int(g1)-int(g2)) > int(threshold) ||
-				abs(int(b1)-int(b2)) > int(threshold) ||
-				abs(int(a1)-int(a2)) > int(threshold) {
+			// If any color component differs by more than the threshold, count it as different
+			if abs(int(r1)-int(r2)) > int(colorDifferenceThreshold) ||
+				abs(int(g1)-int(g2)) > int(colorDifferenceThreshold) ||
+				abs(int(b1)-int(b2)) > int(colorDifferenceThreshold) ||
+				abs(int(a1)-int(a2)) > int(colorDifferenceThreshold) {
 				differentPixels++
 			}
 		}

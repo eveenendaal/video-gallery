@@ -80,7 +80,36 @@ For the Video Feed use:
 GET /{SECRET_KEY}/feed
 ```
 
+For the Admin interface use:
+```
+GET /{SECRET_KEY}/admin
+```
+
 You can navigate to all the galleries from the HTML index page.  After clicking into one of these galleries, the application open a new page specifically for that gallery. Each gallery is given its own unique prefix. This means you'll be able to share an individual gallery with someone without revealing the path to all the galleries.
+
+### Admin Interface
+
+The admin interface provides powerful tools for managing video thumbnails:
+
+**Features:**
+- View all videos with their current thumbnail status
+- Generate thumbnails for individual videos with customizable time offset
+- Clear thumbnails for individual videos
+- Bulk generate thumbnails for all videos at once
+- Bulk clear all thumbnails with confirmation
+
+**Individual Video Operations:**
+Each video has controls to:
+1. Set the time in milliseconds where the thumbnail should be extracted (e.g., 1000ms = 1 second into the video)
+2. Generate a new thumbnail at that timestamp
+3. Clear the existing thumbnail (if present)
+
+**Bulk Operations:**
+1. Set a default time offset for all videos
+2. Click "Generate All Thumbnails" to create thumbnails for all videos (or regenerate existing ones)
+3. Click "Clear All Thumbnails" to remove all thumbnails from storage (requires confirmation)
+
+The interface will show the status of each operation and automatically refresh after successful completion.
 
 ## Feed Schema
 

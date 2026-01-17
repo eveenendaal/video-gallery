@@ -20,8 +20,8 @@ var Version = "dev"
 func NewRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:     "video-gallery",
-		Short:   "Video Gallery is a tool for managing and displaying video galleries",
-		Long:    `Video Gallery is a command line application that can display and manage video galleries\nstored in Google Cloud Storage. It can also serve these galleries via a web interface.`,
+		Short:   "Video Gallery - web server for video galleries",
+		Long:    `Video Gallery is a web server that displays video galleries stored in Google Cloud Storage.`,
 		Version: Version,
 	}
 
@@ -33,12 +33,7 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.PersistentFlags().StringVarP(&portNumber, "port", "p", "", "Set the PORT (overrides environment variable)")
 
 	// Add commands to root
-	rootCmd.AddCommand(newListCategoriesCmd())
-	rootCmd.AddCommand(newListGalleriesCmd())
-	rootCmd.AddCommand(newShowGalleryCmd())
-	rootCmd.AddCommand(newExportCmd())
 	rootCmd.AddCommand(newServeCmd())
-	rootCmd.AddCommand(newGenerateThumbnailsCmd())
 
 	return rootCmd
 }

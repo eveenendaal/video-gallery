@@ -71,8 +71,10 @@ html
                                     input#selectAll(type="checkbox" onchange="toggleSelectAll()")
                                 th Thumbnail
                                 th Video
-                                th Gallery
-                                th Category
+                                th 
+                                    a(href="#" onclick="sortBy('gallery'); return false;") Gallery ↕
+                                th 
+                                    a(href="#" onclick="sortBy('category'); return false;") Category ↕
                                 th Status
                                 th Actions
                         tbody
@@ -80,6 +82,9 @@ html
                                 each gallery in category.Galleries
                                     each video in gallery.Videos
                                         tr.video-row
+                                            input.row-category(type="hidden" value=category.Name)
+                                            input.row-gallery(type="hidden" value=gallery.Name)
+                                            input.row-video(type="hidden" value=video.Name)
                                             td
                                                 input.video-checkbox(type="checkbox" onchange="updateSelectedCount()")
                                             td
@@ -116,6 +121,12 @@ html
 
         script.
             const secretKey = 'asdf';
+            let sortOrder = {gallery: 'asc', category: 'asc'};
+            
+            document.addEventListener('DOMContentLoaded', function() {
+                sortBy('category');
+                populateGalleryFilter();
+            });
             
             document.getElementById('videoTable').addEventListener('click', function(e) {
                 const generateBtn = e.target.closest('.btn-generate');
@@ -134,19 +145,35 @@ html
                 }
             });
             
+            function populateGalleryFilter() {
+                const gallerySelect = document.getElementById('filterGallery');
+                const galleries = new Set();
+                const rows = document.querySelectorAll('#videoTable tbody tr');
+                rows.forEach(row => {
+                    const galleryInput = row.querySelector('.row-gallery');
+                    if (galleryInput) galleries.add(galleryInput.value);
+                });
+                galleries.forEach(gallery => {
+                    const option = document.createElement('option');
+                    option.value = gallery;
+                    option.textContent = gallery;
+                    gallerySelect.appendChild(option);
+                });
+            }
+            
             document.getElementById('filterCategory').addEventListener('change', function() {
                 const category = this.value;
                 const gallerySelect = document.getElementById('filterGallery');
                 gallerySelect.innerHTML = '<option value="">All Galleries</option>';
                 
                 if (category) {
-                    const rows = document.querySelectorAll('#videoTable tbody tr');
                     const galleries = new Set();
+                    const rows = document.querySelectorAll('#videoTable tbody tr');
                     rows.forEach(row => {
-                        const catCell = row.cells[4];
-                        if (catCell && catCell.textContent === category) {
-                            const galCell = row.cells[3];
-                            if (galCell) galleries.add(galCell.textContent);
+                        const catInput = row.querySelector('.row-category');
+                        const galInput = row.querySelector('.row-gallery');
+                        if (catInput && catInput.value === category && galInput) {
+                            galleries.add(galInput.value);
                         }
                     });
                     galleries.forEach(gallery => {
@@ -155,8 +182,31 @@ html
                         option.textContent = gallery;
                         gallerySelect.appendChild(option);
                     });
+                } else {
+                    populateGalleryFilter();
                 }
+                applyFilters();
             });
+            
+            function sortBy(column) {
+                const tbody = document.querySelector('#videoTable tbody');
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+                
+                sortOrder[column] = sortOrder[column] === 'asc' ? 'desc' : 'asc';
+                const order = sortOrder[column];
+                
+                rows.sort((a, b) => {
+                    const aInput = a.querySelector('.row-' + column);
+                    const bInput = b.querySelector('.row-' + column);
+                    let aVal = aInput ? aInput.value : '';
+                    let bVal = bInput ? bInput.value : '';
+                    
+                    const comparison = aVal.localeCompare(bVal);
+                    return order === 'asc' ? comparison : -comparison;
+                });
+                
+                rows.forEach(row => tbody.appendChild(row));
+            }
             
             function applyFilters() {
                 const category = document.getElementById('filterCategory').value;
@@ -169,15 +219,20 @@ html
                     let show = true;
                     const thumbnail = row.querySelector('img');
                     const hasThumbnail = thumbnail !== null;
-                    const videoName = row.cells[2].textContent.trim();
-                    const galleryName = row.cells[3].textContent.trim();
-                    const categoryName = row.cells[4].textContent.trim();
+                    
+                    const videoInput = row.querySelector('.row-video');
+                    const galleryInput = row.querySelector('.row-gallery');
+                    const categoryInput = row.querySelector('.row-category');
+                    
+                    const videoName = videoInput ? videoInput.value.toLowerCase() : '';
+                    const galleryName = galleryInput ? galleryInput.value : '';
+                    const categoryName = categoryInput ? categoryInput.value : '';
                     
                     if (category && categoryName !== category) show = false;
                     if (gallery && galleryName !== gallery) show = false;
                     if (status === 'has' && !hasThumbnail) show = false;
                     if (status === 'missing' && hasThumbnail) show = false;
-                    if (search && !videoName.toLowerCase().includes(search)) show = false;
+                    if (search && !videoName.includes(search)) show = false;
                     
                     row.style.display = show ? '' : 'none';
                 });
@@ -211,10 +266,18 @@ html
                 
                 if (!confirm('Generate thumbnails for ' + checked.length + ' video(s)?')) return;
                 
+                let completed = 0;
+                const total = checked.length;
+                
                 checked.forEach(cb => {
                     const row = cb.closest('tr');
                     const videoPath = row.querySelector('.video-path').value;
-                    generateThumbnail(row, videoPath, timeMs);
+                    generateThumbnail(row, videoPath, timeMs, function() {
+                        completed++;
+                        if (completed === total) {
+                            setTimeout(function() { location.reload(); }, 2000);
+                        }
+                    });
                 });
             }
             
@@ -225,16 +288,24 @@ html
                 
                 if (!confirm('Clear thumbnails for ' + checked.length + ' video(s)? This cannot be undone.')) return;
                 
+                let completed = 0;
+                const total = checked.length;
+                
                 checked.forEach(cb => {
                     const row = cb.closest('tr');
                     const thumbnailPath = row.querySelector('.thumbnail-path').value;
                     if (thumbnailPath) {
-                        clearThumbnail(row, thumbnailPath);
+                        clearThumbnail(row, thumbnailPath, function() {
+                            completed++;
+                            if (completed === total) {
+                                setTimeout(function() { location.reload(); }, 2000);
+                            }
+                        });
                     }
                 });
             }
             
-            function generateThumbnail(row, videoPath, timeMs) {
+            function generateThumbnail(row, videoPath, timeMs, callback) {
                 const statusDiv = row.querySelector('.status-msg');
                 statusDiv.classList.remove('is-hidden', 'is-success', 'is-danger');
                 statusDiv.classList.add('is-info');
@@ -250,6 +321,7 @@ html
                         statusDiv.classList.remove('is-info', 'is-success');
                         statusDiv.classList.add('is-danger');
                         statusDiv.innerHTML = 'Error: ' + data.error;
+                        if (callback) callback();
                         return;
                     }
                     
@@ -258,7 +330,11 @@ html
                         statusDiv.classList.remove('is-info', 'is-danger');
                         statusDiv.classList.add('is-success');
                         statusDiv.innerHTML = 'Thumbnail generated successfully!';
-                        setTimeout(function() { location.reload(); }, 2000);
+                        if (callback) {
+                            callback();
+                        } else {
+                            setTimeout(function() { location.reload(); }, 2000);
+                        }
                         return;
                     }
                     
@@ -270,10 +346,11 @@ html
                     statusDiv.classList.remove('is-info', 'is-success');
                     statusDiv.classList.add('is-danger');
                     statusDiv.innerHTML = 'Error: Connection failed';
+                    if (callback) callback();
                 };
             }
             
-            function clearThumbnail(row, thumbnailPath) {
+            function clearThumbnail(row, thumbnailPath, callback) {
                 const statusDiv = row.querySelector('.status-msg');
                 statusDiv.classList.remove('is-hidden', 'is-success', 'is-danger');
                 statusDiv.classList.add('is-info');
@@ -289,11 +366,16 @@ html
                     statusDiv.classList.remove('is-info', 'is-danger');
                     statusDiv.classList.add('is-success');
                     statusDiv.textContent = data.message || 'Thumbnail cleared successfully!';
-                    setTimeout(function() { location.reload(); }, 2000);
+                    if (callback) {
+                        callback();
+                    } else {
+                        setTimeout(function() { location.reload(); }, 2000);
+                    }
                 })
                 .catch(function(error) {
                     statusDiv.classList.remove('is-info', 'is-success');
                     statusDiv.classList.add('is-danger');
                     statusDiv.textContent = 'Error: ' + error.message;
+                    if (callback) callback();
                 });
             }

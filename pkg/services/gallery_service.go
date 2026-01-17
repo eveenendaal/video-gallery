@@ -194,6 +194,26 @@ func GetVideos() []models.Video {
 	return defaultService.GetVideosInternal()
 }
 
+// GenerateThumbnail generates a thumbnail for a specific video
+func GenerateThumbnail(videoPath string, timeMs int) error {
+	return defaultService.GenerateThumbnail(videoPath, timeMs)
+}
+
+// ClearThumbnail removes a thumbnail from storage
+func ClearThumbnail(thumbnailPath string) error {
+	return defaultService.ClearThumbnail(thumbnailPath)
+}
+
+// BulkGenerateThumbnails generates thumbnails for all videos
+func BulkGenerateThumbnails(timeMs int, force bool) (int, int, error) {
+	return defaultService.BulkGenerateThumbnails(timeMs, force)
+}
+
+// BulkClearThumbnails removes all thumbnails from storage
+func BulkClearThumbnails() (int, error) {
+	return defaultService.BulkClearThumbnails()
+}
+
 // GetVideosInternal returns all videos from the storage bucket
 func (s *Service) GetVideosInternal() []models.Video {
 	s.mu.RLock()
@@ -282,6 +302,7 @@ func (s *Service) GetVideosInternal() []models.Video {
 		for _, ext := range videoExtensions {
 			if strings.HasSuffix(filename, ext) {
 				video.Url = signedURL
+				video.VideoPath = file.Name
 				videosMap[fileBase] = video
 				break
 			}
@@ -291,6 +312,7 @@ func (s *Service) GetVideosInternal() []models.Video {
 		for _, ext := range imageExtensions {
 			if strings.HasSuffix(filename, ext) {
 				video.Thumbnail = &signedURL
+				video.ThumbnailPath = file.Name
 				videosMap[fileBase] = video
 				break
 			}

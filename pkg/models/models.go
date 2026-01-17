@@ -17,14 +17,21 @@ type Gallery struct {
 
 // Video represents a video file with an optional thumbnail
 type Video struct {
-	Name      string  `json:"name"`
-	Category  string  `json:"-"`
-	Gallery   string  `json:"-"`
-	Url       string  `json:"url"`
-	Thumbnail *string `json:"thumbnail,omitempty"`
+	Name          string  `json:"name"`
+	Category      string  `json:"-"`
+	Gallery       string  `json:"-"`
+	Url           string  `json:"url"`
+	Thumbnail     *string `json:"thumbnail,omitempty"`
+	VideoPath     string  `json:"-"` // Storage path for the video file
+	ThumbnailPath string  `json:"-"` // Storage path for the thumbnail file
 }
 
 // Index represents the main index page data
 type Index struct {
+	Categories []Category
+}
+
+// Admin represents the admin page data
+type Admin struct {
 	Categories []Category
 }

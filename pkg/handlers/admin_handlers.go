@@ -34,12 +34,10 @@ func AdminHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	adminData := models.Admin{
+	err = template.Execute(w, models.Admin{
 		Categories: services.GetCategories(),
 		SecretKey:  secretKey,
-	}
-	log.Printf("Admin SecretKey: %s", adminData.SecretKey)
-	err = template.Execute(w, adminData)
+	})
 
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Template execution error: %v", err), http.StatusInternalServerError)

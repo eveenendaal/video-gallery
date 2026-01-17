@@ -37,7 +37,7 @@ html
                             div.gallery-section
                                 h4.subtitle.is-6 #{gallery.Name}
                                 each video in gallery.Videos
-                                    - videoIndex++
+                                    - var videoIndex = videoIndex + 1
                                     div.video.box
                                         div.columns.is-vcentered
                                             div.column.is-2
@@ -63,12 +63,12 @@ html
                                                         div.control.is-expanded
                                                             input.input(type="number", id="time-#{videoIndex}", placeholder="e.g. 1000 = 1 sec", value="1000", min="0", step="100")
                                                         div.control
-                                                            button.button.is-info(onclick=`generateThumbnail('${video.VideoPath}', ${videoIndex})`) Generate
+                                                            button.button.is-info(onclick="generateThumbnail('" + video.VideoPath + "', " + videoIndex + ")") Generate
                                                         if video.Thumbnail
                                                             div.control
-                                                                button.button.is-danger(onclick=`clearThumbnail('${video.ThumbnailPath}', ${videoIndex})`) Clear
+                                                                button.button.is-danger(onclick="clearThumbnail('" + video.ThumbnailPath + "', " + videoIndex + ")") Clear
                                                     p.help 1000ms = 1 second into video
-                                                div.notification.is-hidden.mt-2(id=`status-${videoIndex}`)
+                                                div.notification.is-hidden.mt-2(id="status-" + videoIndex)
 
         script.
             const secretKey = '#{SecretKey}';

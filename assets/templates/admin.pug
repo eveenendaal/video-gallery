@@ -1,7 +1,7 @@
 doctype html
 html
     head
-        meta(name="viewport", content="width=device-width,initial-scale=1.0")
+        meta(name="viewport" content="width=device-width,initial-scale=1.0")
         title Admin - Thumbnail Management
         style 
             include ../../public/styles.css
@@ -13,166 +13,285 @@ html
                     p.subtitle Browse and manage video thumbnails
         div.container
             div.section
-                h2.title.is-4 Bulk Operations
-                div.field.is-grouped
-                    div.control
-                        label.label(for="bulkTimeMs") Thumbnail Time (milliseconds)
-                        input.input(type="number", id="bulkTimeMs", placeholder="e.g. 1000 = 1 second", value="1000", min="0", step="100")
-                        p.help 1000ms = 1 second into the video
-                    div.control
-                        label.label &nbsp;
-                        button.button.is-warning(onclick="bulkClearThumbnails()") Clear All Thumbnails
-                    div.control
-                        label.label &nbsp;
-                        button.button.is-success(onclick="bulkGenerateThumbnails()") Generate All Thumbnails
-                div#bulkStatus.notification.is-hidden
-            
-            div.section
-                h2.title.is-4 Videos
-                - var videoIndex = 0
-                each category in Categories
-                    div.category
-                        h3.title.is-5 #{category.Name}
-                        each gallery in category.Galleries
-                            div.gallery-section
-                                h4.subtitle.is-6 #{gallery.Name}
-                                each video in gallery.Videos
-                                    - var videoIndex = videoIndex + 1
-                                    div.video.box
-                                        div.columns.is-vcentered
-                                            div.column.is-2
+                h2.title.is-4 Video Management
+                
+                div.box.mb-4
+                    h3.subtitle.is-5 Filters
+                    div.field.is-grouped.is-grouped-multiline
+                        div.control
+                            label.label.is-small Category
+                            div.select.is-small
+                                select#filterCategory(onchange="applyFilters()")
+                                    option(value="") All Categories
+                                    each category in Categories
+                                        option #{category.Name}
+                        div.control
+                            label.label.is-small Gallery
+                            div.select.is-small
+                                select#filterGallery(onchange="applyFilters()")
+                                    option(value="") All Galleries
+                        div.control
+                            label.label.is-small Status
+                            div.select.is-small
+                                select#filterStatus(onchange="applyFilters()")
+                                    option(value="") All
+                                    option(value="has") Has Thumbnail
+                                    option(value="missing") Missing Thumbnail
+                        div.control
+                            label.label.is-small Search
+                            input.input.is-small#filterSearch(type="text" placeholder="Search videos..." oninput="applyFilters()")
+                
+                div.box.mb-4
+                    h3.subtitle.is-5 Bulk Operations
+                    div.field.is-grouped
+                        div.control
+                            label.label.is-small Thumbnail Time (ms)
+                            input.input.is-small#bulkTimeMs(type="number" value="1000" min="0" step="100")
+                        div.control
+                            label.label.is-small &nbsp;
+                            button.button.is-info.is-small#btnGenerate(onclick="generateSelectedThumbnails()" disabled)
+                                span.icon
+                                    i 📷
+                                span Generate Selected
+                        div.control
+                            label.label.is-small &nbsp;
+                            button.button.is-danger.is-small#btnClear(onclick="clearSelectedThumbnails()" disabled)
+                                span.icon
+                                    i 🗑️
+                                span Clear Selected
+                        div.control
+                            label.label.is-small &nbsp;
+                            span.tag.is-info#selectedCount 0 selected
+                
+                div.table-container
+                    table.table.is-fullwidth.is-striped.is-hoverable#videoTable
+                        thead
+                            tr
+                                th
+                                    input#selectAll(type="checkbox" onchange="toggleSelectAll()")
+                                th Thumbnail
+                                th Video
+                                th Gallery
+                                th Category
+                                th Status
+                                th Actions
+                        tbody
+                            each category in Categories
+                                each gallery in category.Galleries
+                                    each video in gallery.Videos
+                                        tr.video-row
+                                            td
+                                                input.video-checkbox(type="checkbox" onchange="updateSelectedCount()")
+                                            td
                                                 if video.Thumbnail
-                                                    figure.image.is-128x128
-                                                        img(src=video.Thumbnail, alt=video.Name)
+                                                    figure.image.is-48x48
+                                                        img(src=video.Thumbnail alt=video.Name)
                                                 else
-                                                    figure.image.is-128x128
-                                                        div.has-background-grey-lighter(style="width:128px;height:128px;display:flex;align-items:center;justify-content:center;")
-                                                            span.icon.is-large
-                                                                i ❌
-                                            div.column.is-5
-                                                p.title.is-6 #{video.Name}
-                                                p.subtitle.is-7 #{gallery.Name} / #{category.Name}
+                                                    figure.image.is-48x48
+                                                        div.has-background-grey-lighter(style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;")
+                                                            span ❌
+                                            td
+                                                strong #{video.Name}
+                                                input.video-path(type="hidden" value=video.VideoPath)
+                                                input.thumbnail-path(type="hidden" value=video.ThumbnailPath)
+                                            td #{gallery.Name}
+                                            td #{category.Name}
+                                            td
                                                 if video.Thumbnail
-                                                    span.tag.is-success Has Thumbnail
+                                                    span.tag.is-success.is-small Has Thumbnail
                                                 else
-                                                    span.tag.is-warning No Thumbnail
-                                            div.column.is-5
-                                                div.field
-                                                    label.label(for="time-" + videoIndex) Thumbnail Time (ms)
-                                                    div.field.has-addons
-                                                        div.control.is-expanded
-                                                            input.input(type="number", id="time-" + videoIndex, placeholder="e.g. 1000 = 1 sec", value="1000", min="0", step="100")
+                                                    span.tag.is-warning.is-small Missing
+                                            td
+                                                div.field.has-addons
+                                                    div.control
+                                                        input.input.is-small.time-input(type="number" value="1000" min="0" step="100" style="width:80px")
+                                                    div.control
+                                                        button.button.is-info.is-small.btn-generate(title="Generate")
+                                                            span 📷
+                                                    if video.Thumbnail
                                                         div.control
-                                                            button.button.is-info(onclick!="generateThumbnail('" + video.VideoPath + "', " + videoIndex + ")") Generate
-                                                        if video.Thumbnail
-                                                            div.control
-                                                                button.button.is-danger(onclick!="clearThumbnail('" + video.ThumbnailPath + "', " + videoIndex + ")") Clear
-                                                    p.help 1000ms = 1 second into video
-                                                div.notification.is-hidden.mt-2(id="status-" + videoIndex)
+                                                            button.button.is-danger.is-small.btn-clear(title="Clear")
+                                                                span 🗑️
+                                                div.notification.is-hidden.mt-2.is-small.status-msg
 
         script.
             const secretKey = '#{SecretKey}';
             
-            function generateThumbnail(videoPath, videoIndex) {
-                const timeMs = document.getElementById('time-' + videoIndex).value;
-                const statusDiv = document.getElementById('status-' + videoIndex);
-                statusDiv.classList.remove('is-hidden', 'is-success', 'is-danger');
-                statusDiv.classList.add('is-info');
-                statusDiv.textContent = 'Generating thumbnail...';
+            document.getElementById('videoTable').addEventListener('click', function(e) {
+                const generateBtn = e.target.closest('.btn-generate');
+                const clearBtn = e.target.closest('.btn-clear');
                 
-                fetch(`/${secretKey}/admin/api/generate-thumbnail`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({videoPath: videoPath, timeMs: parseInt(timeMs)})
-                })
-                .then(response => response.json())
-                .then(data => {
-                    statusDiv.classList.remove('is-info', 'is-danger');
-                    statusDiv.classList.add('is-success');
-                    statusDiv.textContent = data.message || 'Thumbnail generated successfully!';
-                    setTimeout(() => location.reload(), 2000);
-                })
-                .catch(error => {
-                    statusDiv.classList.remove('is-info', 'is-success');
-                    statusDiv.classList.add('is-danger');
-                    statusDiv.textContent = 'Error: ' + error.message;
+                if (generateBtn) {
+                    const row = generateBtn.closest('tr');
+                    const videoPath = row.querySelector('.video-path').value;
+                    const timeInput = row.querySelector('.time-input');
+                    const timeMs = timeInput.value;
+                    generateThumbnail(row, videoPath, timeMs);
+                } else if (clearBtn) {
+                    const row = clearBtn.closest('tr');
+                    const thumbnailPath = row.querySelector('.thumbnail-path').value;
+                    clearThumbnail(row, thumbnailPath);
+                }
+            });
+            
+            document.getElementById('filterCategory').addEventListener('change', function() {
+                const category = this.value;
+                const gallerySelect = document.getElementById('filterGallery');
+                gallerySelect.innerHTML = '<option value="">All Galleries</option>';
+                
+                if (category) {
+                    const rows = document.querySelectorAll('#videoTable tbody tr');
+                    const galleries = new Set();
+                    rows.forEach(row => {
+                        const catCell = row.cells[4];
+                        if (catCell && catCell.textContent === category) {
+                            const galCell = row.cells[3];
+                            if (galCell) galleries.add(galCell.textContent);
+                        }
+                    });
+                    galleries.forEach(gallery => {
+                        const option = document.createElement('option');
+                        option.value = gallery;
+                        option.textContent = gallery;
+                        gallerySelect.appendChild(option);
+                    });
+                }
+            });
+            
+            function applyFilters() {
+                const category = document.getElementById('filterCategory').value;
+                const gallery = document.getElementById('filterGallery').value;
+                const status = document.getElementById('filterStatus').value;
+                const search = document.getElementById('filterSearch').value.toLowerCase();
+                
+                const rows = document.querySelectorAll('#videoTable tbody tr');
+                rows.forEach(row => {
+                    let show = true;
+                    const thumbnail = row.querySelector('img');
+                    const hasThumbnail = thumbnail !== null;
+                    const videoName = row.cells[2].textContent.trim();
+                    const galleryName = row.cells[3].textContent.trim();
+                    const categoryName = row.cells[4].textContent.trim();
+                    
+                    if (category && categoryName !== category) show = false;
+                    if (gallery && galleryName !== gallery) show = false;
+                    if (status === 'has' && !hasThumbnail) show = false;
+                    if (status === 'missing' && hasThumbnail) show = false;
+                    if (search && !videoName.toLowerCase().includes(search)) show = false;
+                    
+                    row.style.display = show ? '' : 'none';
                 });
             }
             
-            function clearThumbnail(thumbnailPath, videoIndex) {
-                const statusDiv = document.getElementById('status-' + videoIndex);
+            function toggleSelectAll() {
+                const selectAll = document.getElementById('selectAll');
+                const checkboxes = document.querySelectorAll('.video-checkbox');
+                checkboxes.forEach(cb => {
+                    const row = cb.closest('tr');
+                    if (row.style.display !== 'none') {
+                        cb.checked = selectAll.checked;
+                    }
+                });
+                updateSelectedCount();
+            }
+            
+            function updateSelectedCount() {
+                const checked = document.querySelectorAll('.video-checkbox:checked');
+                const count = checked.length;
+                document.getElementById('selectedCount').textContent = count + ' selected';
+                document.getElementById('btnGenerate').disabled = count === 0;
+                document.getElementById('btnClear').disabled = count === 0;
+            }
+            
+            function generateSelectedThumbnails() {
+                const timeMs = document.getElementById('bulkTimeMs').value;
+                const checked = document.querySelectorAll('.video-checkbox:checked');
+                
+                if (checked.length === 0) return;
+                
+                if (!confirm('Generate thumbnails for ' + checked.length + ' video(s)?')) return;
+                
+                checked.forEach(cb => {
+                    const row = cb.closest('tr');
+                    const videoPath = row.querySelector('.video-path').value;
+                    generateThumbnail(row, videoPath, timeMs);
+                });
+            }
+            
+            function clearSelectedThumbnails() {
+                const checked = document.querySelectorAll('.video-checkbox:checked');
+                
+                if (checked.length === 0) return;
+                
+                if (!confirm('Clear thumbnails for ' + checked.length + ' video(s)? This cannot be undone.')) return;
+                
+                checked.forEach(cb => {
+                    const row = cb.closest('tr');
+                    const thumbnailPath = row.querySelector('.thumbnail-path').value;
+                    if (thumbnailPath) {
+                        clearThumbnail(row, thumbnailPath);
+                    }
+                });
+            }
+            
+            function generateThumbnail(row, videoPath, timeMs) {
+                const statusDiv = row.querySelector('.status-msg');
+                statusDiv.classList.remove('is-hidden', 'is-success', 'is-danger');
+                statusDiv.classList.add('is-info');
+                statusDiv.innerHTML = '<progress class="progress is-small is-info" value="0" max="100">0%</progress><span>Initializing...</span>';
+                
+                const eventSource = new EventSource('/' + secretKey + '/admin/api/generate-thumbnail?videoPath=' + encodeURIComponent(videoPath) + '&timeMs=' + timeMs);
+                
+                eventSource.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.error) {
+                        eventSource.close();
+                        statusDiv.classList.remove('is-info', 'is-success');
+                        statusDiv.classList.add('is-danger');
+                        statusDiv.innerHTML = 'Error: ' + data.error;
+                        return;
+                    }
+                    
+                    if (data.progress === 100) {
+                        eventSource.close();
+                        statusDiv.classList.remove('is-info', 'is-danger');
+                        statusDiv.classList.add('is-success');
+                        statusDiv.innerHTML = 'Thumbnail generated successfully!';
+                        setTimeout(function() { location.reload(); }, 2000);
+                        return;
+                    }
+                    
+                    statusDiv.innerHTML = '<progress class="progress is-small is-info" value="' + data.progress + '" max="100">' + data.progress + '%</progress><span>' + data.step + '...</span>';
+                };
+                
+                eventSource.onerror = function(error) {
+                    eventSource.close();
+                    statusDiv.classList.remove('is-info', 'is-success');
+                    statusDiv.classList.add('is-danger');
+                    statusDiv.innerHTML = 'Error: Connection failed';
+                };
+            }
+            
+            function clearThumbnail(row, thumbnailPath) {
+                const statusDiv = row.querySelector('.status-msg');
                 statusDiv.classList.remove('is-hidden', 'is-success', 'is-danger');
                 statusDiv.classList.add('is-info');
                 statusDiv.textContent = 'Clearing thumbnail...';
                 
-                fetch(`/${secretKey}/admin/api/clear-thumbnail`, {
+                fetch('/' + secretKey + '/admin/api/clear-thumbnail', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({thumbnailPath: thumbnailPath})
                 })
-                .then(response => response.json())
-                .then(data => {
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
                     statusDiv.classList.remove('is-info', 'is-danger');
                     statusDiv.classList.add('is-success');
                     statusDiv.textContent = data.message || 'Thumbnail cleared successfully!';
-                    setTimeout(() => location.reload(), 2000);
+                    setTimeout(function() { location.reload(); }, 2000);
                 })
-                .catch(error => {
-                    statusDiv.classList.remove('is-info', 'is-success');
-                    statusDiv.classList.add('is-danger');
-                    statusDiv.textContent = 'Error: ' + error.message;
-                });
-            }
-            
-            function bulkGenerateThumbnails() {
-                const timeMs = document.getElementById('bulkTimeMs').value;
-                const statusDiv = document.getElementById('bulkStatus');
-                statusDiv.classList.remove('is-hidden', 'is-success', 'is-danger');
-                statusDiv.classList.add('is-info');
-                statusDiv.textContent = 'Generating all thumbnails... This may take several minutes.';
-                
-                fetch(`/${secretKey}/admin/api/bulk-generate-thumbnails`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({timeMs: parseInt(timeMs), force: true})
-                })
-                .then(response => response.json())
-                .then(data => {
-                    statusDiv.classList.remove('is-info', 'is-danger');
-                    statusDiv.classList.add('is-success');
-                    statusDiv.textContent = data.message || 'All thumbnails generated successfully!';
-                    setTimeout(() => location.reload(), 2000);
-                })
-                .catch(error => {
-                    statusDiv.classList.remove('is-info', 'is-success');
-                    statusDiv.classList.add('is-danger');
-                    statusDiv.textContent = 'Error: ' + error.message;
-                });
-            }
-            
-            function bulkClearThumbnails() {
-                if (!confirm('Are you sure you want to clear ALL thumbnails? This cannot be undone.')) {
-                    return;
-                }
-                
-                const statusDiv = document.getElementById('bulkStatus');
-                statusDiv.classList.remove('is-hidden', 'is-success', 'is-danger');
-                statusDiv.classList.add('is-info');
-                statusDiv.textContent = 'Clearing all thumbnails...';
-                
-                fetch(`/${secretKey}/admin/api/bulk-clear-thumbnails`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({})
-                })
-                .then(response => response.json())
-                .then(data => {
-                    statusDiv.classList.remove('is-info', 'is-danger');
-                    statusDiv.classList.add('is-success');
-                    statusDiv.textContent = data.message || 'All thumbnails cleared successfully!';
-                    setTimeout(() => location.reload(), 2000);
-                })
-                .catch(error => {
+                .catch(function(error) {
                     statusDiv.classList.remove('is-info', 'is-success');
                     statusDiv.classList.add('is-danger');
                     statusDiv.textContent = 'Error: ' + error.message;

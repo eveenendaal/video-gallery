@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -28,7 +29,7 @@ func AdminHandler(w http.ResponseWriter, r *http.Request) {
 
 	template, err := pug.CompileFile("./assets/templates/admin.pug", pug.Options{})
 	if err != nil {
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Template error: %v", err), http.StatusInternalServerError)
 		log.Printf("Template error: %v", err)
 		return
 	}
@@ -39,41 +40,86 @@ func AdminHandler(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Template execution error: %v", err), http.StatusInternalServerError)
 		log.Printf("Template execution error: %v", err)
 		return
 	}
 }
 
-// GenerateThumbnailHandler handles API requests to generate a single thumbnail
+// GenerateThumbnailHandler handles API requests to generate a single thumbnail with SSE progress
 func GenerateThumbnailHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
+	var videoPath string
+	var timeMs int
+
+	// Support both POST (JSON body) and GET (query params for EventSource)
+	if r.Method == http.MethodGet {
+		videoPath = r.URL.Query().Get("videoPath")
+		timeMs = 1000
+		if timeMsStr := r.URL.Query().Get("timeMs"); timeMsStr != "" {
+			fmt.Sscanf(timeMsStr, "%d", &timeMs)
+		}
+	} else if r.Method == http.MethodPost {
+		var req struct {
+			VideoPath string `json:"videoPath"`
+			TimeMs    int    `json:"timeMs"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+		videoPath = req.VideoPath
+		timeMs = req.TimeMs
+	} else {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	var req struct {
-		VideoPath string `json:"videoPath"`
-		TimeMs    int    `json:"timeMs"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	if videoPath == "" {
+		http.Error(w, "videoPath is required", http.StatusBadRequest)
 		return
 	}
 
-	log.Printf("Generating thumbnail for video: %s at time: %dms", req.VideoPath, req.TimeMs)
+	log.Printf("Generating thumbnail for video: %s at time: %dms", videoPath, timeMs)
 
-	if err := services.GenerateThumbnail(req.VideoPath, req.TimeMs); err != nil {
+	// Set headers for SSE
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	// Progress callback
+	progressCb := func(step string, progress int) {
+		data := map[string]interface{}{
+			"step":     step,
+			"progress": progress,
+		}
+		jsonData, _ := json.Marshal(data)
+		w.Write([]byte("data: "))
+		w.Write(jsonData)
+		w.Write([]byte("\n\n"))
+		flusher.Flush()
+	}
+
+	// Generate thumbnail with progress updates
+	if err := services.GenerateThumbnailWithProgress(videoPath, timeMs, progressCb); err != nil {
 		log.Printf("Error generating thumbnail: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		errorData := map[string]interface{}{
+			"error":    err.Error(),
+			"progress": -1,
+		}
+		jsonData, _ := json.Marshal(errorData)
+		w.Write([]byte("data: "))
+		w.Write(jsonData)
+		w.Write([]byte("\n\n"))
+		flusher.Flush()
 		return
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"message": "Thumbnail generated successfully",
-	})
 }
 
 // ClearThumbnailHandler handles API requests to clear a single thumbnail

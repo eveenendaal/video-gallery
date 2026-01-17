@@ -26,18 +26,34 @@ const (
 	colorDifferenceThreshold = uint32(256) // About 1 unit difference in 8-bit color
 )
 
+// ProgressCallback is a function that receives progress updates
+type ProgressCallback func(step string, progress int)
+
 // GenerateThumbnail generates a thumbnail for a specific video
 func (s *Service) GenerateThumbnail(videoPath string, timeMs int) error {
-	// Check if ffmpeg is installed
+	return s.GenerateThumbnailWithProgress(videoPath, timeMs, nil)
+}
+
+// GenerateThumbnailWithProgress generates a thumbnail with progress updates
+func (s *Service) GenerateThumbnailWithProgress(videoPath string, timeMs int, progressCb ProgressCallback) error {
+	sendProgress := func(step string, progress int) {
+		if progressCb != nil {
+			progressCb(step, progress)
+		}
+	}
+
+	sendProgress("Checking FFmpeg", 5)
 	if err := checkFFmpeg(); err != nil {
 		return fmt.Errorf("FFmpeg is required but not found: %v", err)
 	}
 
+	sendProgress("Setting up directories", 10)
 	outputDir := filepath.Join(os.TempDir(), "video-gallery-thumbnails")
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return fmt.Errorf("failed to create output directory: %v", err)
 	}
 
+	sendProgress("Connecting to storage", 15)
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx)
 	if err != nil {
@@ -56,33 +72,37 @@ func (s *Service) GenerateThumbnail(videoPath string, timeMs int) error {
 	videoBaseName := getSafeFilename(videoPath)
 	thumbnailBaseName := getSafeFilename(thumbnailPath)
 
-	// Download video
+	sendProgress("Clearing old thumbnail", 20)
+	bucket.Object(thumbnailPath).Delete(ctx)
+
+	sendProgress("Downloading video", 30)
 	tmpVideoPath := filepath.Join(outputDir, videoBaseName)
 	if err := downloadFile(ctx, bucket, videoPath, tmpVideoPath); err != nil {
 		return fmt.Errorf("error downloading video: %v", err)
 	}
 	defer os.Remove(tmpVideoPath)
 
-	// Create thumbnail
+	sendProgress("Generating thumbnail", 60)
 	tmpThumbnailPath := filepath.Join(outputDir, thumbnailBaseName)
 	if err := createThumbnailWithFFmpeg(tmpVideoPath, tmpThumbnailPath, timeMs); err != nil {
 		return fmt.Errorf("error creating thumbnail: %v", err)
 	}
 	defer os.Remove(tmpThumbnailPath)
 
-	// Validate thumbnail
+	sendProgress("Validating thumbnail", 80)
 	if err := validateThumbnail(tmpThumbnailPath); err != nil {
 		return fmt.Errorf("thumbnail validation failed: %v", err)
 	}
 
-	// Upload thumbnail
+	sendProgress("Uploading thumbnail", 85)
 	if err := uploadFile(ctx, bucket, tmpThumbnailPath, thumbnailPath); err != nil {
 		return fmt.Errorf("error uploading thumbnail: %v", err)
 	}
 
-	// Clear cache so new thumbnail is visible
+	sendProgress("Clearing cache", 95)
 	s.videoCache.Flush()
 
+	sendProgress("Complete", 100)
 	return nil
 }
 
@@ -327,11 +347,11 @@ func createThumbnailWithFFmpeg(videoPath, thumbnailPath string, timeMs int) erro
 	// Convert milliseconds to HH:MM:SS.mmm format
 	totalSeconds := timeMs / 1000
 	milliseconds := timeMs % 1000
-	
+
 	hours := totalSeconds / 3600
 	minutes := (totalSeconds % 3600) / 60
 	seconds := totalSeconds % 60
-	
+
 	timeStr := fmt.Sprintf("%02d:%02d:%02d.%03d", hours, minutes, seconds, milliseconds)
 
 	cmd := exec.Command(

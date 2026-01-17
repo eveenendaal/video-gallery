@@ -199,6 +199,11 @@ func GenerateThumbnail(videoPath string, timeMs int) error {
 	return defaultService.GenerateThumbnail(videoPath, timeMs)
 }
 
+// GenerateThumbnailWithProgress generates a thumbnail for a specific video with progress updates
+func GenerateThumbnailWithProgress(videoPath string, timeMs int, progressCb func(string, int)) error {
+	return defaultService.GenerateThumbnailWithProgress(videoPath, timeMs, progressCb)
+}
+
 // ClearThumbnail removes a thumbnail from storage
 func ClearThumbnail(thumbnailPath string) error {
 	return defaultService.ClearThumbnail(thumbnailPath)

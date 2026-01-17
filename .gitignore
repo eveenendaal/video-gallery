@@ -35,9 +35,6 @@ thumbnails
 # Creds
 creds.json
 
-# Styles
-public/styles.css*
-
 # Bin
 video-gallery
 *.exe

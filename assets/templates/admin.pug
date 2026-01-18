@@ -127,43 +127,67 @@ html
             | let sortOrder = {gallery: 'asc', category: 'asc'};
             | 
             | function saveFilterState() {
-            |     const filterState = {
-            |         category: document.getElementById('filterCategory').value,
-            |         gallery: document.getElementById('filterGallery').value,
-            |         status: document.getElementById('filterStatus').value,
-            |         search: document.getElementById('filterSearch').value,
-            |         sortOrder: sortOrder
-            |     };
-            |     localStorage.setItem('adminFilterState', JSON.stringify(filterState));
+            |     const params = new URLSearchParams();
+            |     const category = document.getElementById('filterCategory').value;
+            |     const gallery = document.getElementById('filterGallery').value;
+            |     const status = document.getElementById('filterStatus').value;
+            |     const search = document.getElementById('filterSearch').value;
+            |     
+            |     if (category) params.set('category', category);
+            |     if (gallery) params.set('gallery', gallery);
+            |     if (status) params.set('status', status);
+            |     if (search) params.set('search', search);
+            |     
+            |     const sortCol = Object.keys(sortOrder).find(k => sortOrder[k] !== 'asc' || k === 'category');
+            |     const sortDir = sortOrder[sortCol] || 'asc';
+            |     if (sortCol) params.set('sortCol', sortCol);
+            |     if (sortDir) params.set('sortDir', sortDir);
+            |     
+            |     const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+            |     window.history.replaceState({}, '', newUrl);
             | }
             | 
             | function restoreFilterState() {
-            |     const savedState = localStorage.getItem('adminFilterState');
-            |     if (savedState) {
-            |         try {
-            |             const filterState = JSON.parse(savedState);
-            |             document.getElementById('filterCategory').value = filterState.category || '';
-            |             document.getElementById('filterStatus').value = filterState.status || '';
-            |             document.getElementById('filterSearch').value = filterState.search || '';
-            |             if (filterState.sortOrder) {
-            |                 sortOrder = filterState.sortOrder;
-            |             }
-            |             
-            |             /* Restore gallery filter after populating options */
-            |             populateGalleryFilter();
-            |             if (filterState.gallery) {
-            |                 document.getElementById('filterGallery').value = filterState.gallery;
-            |             }
-            |             
-            |             applyFilters();
-            |         } catch (e) {
-            |             console.error('Error restoring filter state:', e);
-            |         }
+            |     const params = new URLSearchParams(window.location.search);
+            |     
+            |     const category = params.get('category') || '';
+            |     const gallery = params.get('gallery') || '';
+            |     const status = params.get('status') || '';
+            |     const search = params.get('search') || '';
+            |     const sortCol = params.get('sortCol');
+            |     const sortDir = params.get('sortDir');
+            |     
+            |     document.getElementById('filterCategory').value = category;
+            |     document.getElementById('filterStatus').value = status;
+            |     document.getElementById('filterSearch').value = search;
+            |     
+            |     populateGalleryFilter();
+            |     if (gallery) {
+            |         document.getElementById('filterGallery').value = gallery;
             |     }
+            |     
+            |     if (sortCol && sortDir) {
+            |         sortOrder = {gallery: 'asc', category: 'asc'};
+            |         sortOrder[sortCol] = sortDir;
+            |         const tbody = document.querySelector('#videoTable tbody');
+            |         const rows = Array.from(tbody.querySelectorAll('tr'));
+            |         rows.sort((a, b) => {
+            |             const aInput = a.querySelector('.row-' + sortCol);
+            |             const bInput = b.querySelector('.row-' + sortCol);
+            |             let aVal = aInput ? aInput.value : '';
+            |             let bVal = bInput ? bInput.value : '';
+            |             const comparison = aVal.localeCompare(bVal);
+            |             return sortDir === 'asc' ? comparison : -comparison;
+            |         });
+            |         rows.forEach(row => tbody.appendChild(row));
+            |     } else {
+            |         sortBy('category');
+            |     }
+            |     
+            |     applyFilters();
             | }
             | 
             | document.addEventListener('DOMContentLoaded', function() {
-            |     sortBy('category');
             |     restoreFilterState();
             | });
             | 
@@ -311,6 +335,12 @@ html
             |     let completed = 0;
             |     const total = checked.length;
             |     
+            |     /* Mark all selected rows as queued */
+            |     checked.forEach(cb => {
+            |         const row = cb.closest('tr');
+            |         row.classList.add('is-queued');
+            |     });
+            |     
             |     /* Process in batches with limited parallelism */
             |     for (let i = 0; i < checked.length; i += parallelOps) {
             |         const batch = checked.slice(i, i + parallelOps);
@@ -318,8 +348,11 @@ html
             |             return new Promise((resolve) => {
             |                 try {
             |                     const row = cb.closest('tr');
+            |                     row.classList.remove('is-queued');
+            |                     row.classList.add('is-processing');
             |                     const videoPath = row.querySelector('.video-path').value;
             |                     generateThumbnail(row, videoPath, timeMs, function() {
+            |                         row.classList.remove('is-processing');
             |                         completed++;
             |                         if (completed === total) {
             |                             setTimeout(function() { location.reload(); }, 2000);
@@ -328,6 +361,7 @@ html
             |                     });
             |                 } catch (error) {
             |                     console.error('Error processing thumbnail:', error);
+            |                     row.classList.remove('is-processing');
             |                     resolve();
             |                 }
             |             });
@@ -346,6 +380,12 @@ html
             |     let completed = 0;
             |     const total = checked.length;
             |     
+            |     /* Mark all selected rows as queued */
+            |     checked.forEach(cb => {
+            |         const row = cb.closest('tr');
+            |         row.classList.add('is-queued');
+            |     });
+            |     
             |     /* Process in batches with limited parallelism */
             |     for (let i = 0; i < checked.length; i += parallelOps) {
             |         const batch = checked.slice(i, i + parallelOps);
@@ -353,9 +393,12 @@ html
             |             return new Promise((resolve) => {
             |                 try {
             |                     const row = cb.closest('tr');
+            |                     row.classList.remove('is-queued');
+            |                     row.classList.add('is-processing');
             |                     const thumbnailPath = row.querySelector('.thumbnail-path').value;
             |                     if (thumbnailPath) {
             |                         clearThumbnail(row, thumbnailPath, function() {
+            |                             row.classList.remove('is-processing');
             |                             completed++;
             |                             if (completed === total) {
             |                                 setTimeout(function() { location.reload(); }, 2000);
@@ -363,10 +406,12 @@ html
             |                             resolve();
             |                         });
             |                     } else {
+            |                         row.classList.remove('is-processing');
             |                         resolve();
             |                     }
             |                 } catch (error) {
             |                     console.error('Error clearing thumbnail:', error);
+            |                     row.classList.remove('is-processing');
             |                     resolve();
             |                 }
             |             });

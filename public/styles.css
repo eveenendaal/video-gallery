@@ -10371,4 +10371,13 @@ html body .container .thumbnail-preview.thumbnail-missing {
   border-radius: 4px;
 }
 
+tr.is-queued {
+  background-color: #fffbea !important;
+  opacity: 0.7;
+}
+
+tr.is-processing {
+  background-color: #e8f5ff !important;
+}
+
 /*# sourceMappingURL=styles.css.map */

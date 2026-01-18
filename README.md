@@ -184,7 +184,11 @@ Like I said in the summary, this application can run in Cloud Run for essentiall
 
 ### Cloud Run
 
-The application is available as a Docker image at `ghcr.io/eveenendaal/video-gallery:latest`. 
+The application is available as a Docker image at `ghcr.io/eveenendaal/video-gallery`. Available tags include:
+- `latest` - Most recent build from the master branch
+- Version tags (e.g., `2.0.171`) - Specific releases
+- Major.minor tags (e.g., `2.0`) - Latest patch version in that series
+- Major version tags (e.g., `2`) - Latest minor version in that series
 
 To deploy to Cloud Run:
 1. Pull the Docker image from GitHub Container Registry or use it directly in Cloud Run
@@ -214,7 +218,7 @@ docker run -p 8080:8080 \
   ghcr.io/eveenendaal/video-gallery:latest
 ```
 
-You need to configure the environment variables above as well as set up the default GCP credentials. You can do this by installing the [Google Cloud SDK](https://cloud.google.com/sdk/) and running `gcloud auth login --update-adc`, then mounting the credentials directory into the container as shown above.
+You need to configure the environment variables listed above and set up default GCP credentials. Install the [Google Cloud SDK](https://cloud.google.com/sdk/) and run `gcloud auth login --update-adc`. Then mount the credentials directory into the container as shown above.
 
 ### Storage Bucket
 The application assumes the Storage Bucket is stored as follows:

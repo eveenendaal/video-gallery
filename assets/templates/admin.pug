@@ -93,12 +93,11 @@ html
                                                 input.video-checkbox(type="checkbox" onchange="updateSelectedCount()")
                                             td
                                                 if video.Thumbnail
-                                                    figure.image.is-48x48
+                                                    div.thumbnail-preview
                                                         img(src=video.Thumbnail alt=video.Name)
                                                 else
-                                                    figure.image.is-48x48
-                                                        div.has-background-grey-lighter(style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;")
-                                                            span ❌
+                                                    div.thumbnail-preview.thumbnail-missing
+                                                        span.is-size-3 ❌
                                             td
                                                 strong #{video.Name}
                                                 input.video-path(type="hidden" value=video.VideoPath)

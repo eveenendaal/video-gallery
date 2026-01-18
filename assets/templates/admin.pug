@@ -21,14 +21,14 @@ html
                         div.control
                             label.label.is-small Category
                             div.select.is-small
-                                select#filterCategory(onchange="applyFilters()")
+                                select#filterCategory(onchange="updateGalleryOptions(); applyFilters()")
                                     option(value="") All Categories
                                     each category in Categories
                                         option #{category.Name}
                         div.control
                             label.label.is-small Gallery
                             div.select.is-small
-                                select#filterGallery(onchange="applyFilters()")
+                                select#filterGallery(onchange="updateCategoryOptions(); applyFilters()")
                                     option(value="") All Galleries
                         div.control
                             label.label.is-small Status
@@ -157,9 +157,13 @@ html
             |     document.getElementById('filterStatus').value = status;
             |     document.getElementById('filterSearch').value = search;
             |     
-            |     populateGalleryFilter();
+            |     updateGalleryOptions();
             |     if (gallery) {
             |         document.getElementById('filterGallery').value = gallery;
+            |     }
+            |     updateCategoryOptions();
+            |     if (category) {
+            |         document.getElementById('filterCategory').value = category;
             |     }
             |     
             |     applyFilters();
@@ -237,32 +241,61 @@ html
             |     });
             | }
             | 
-            | document.getElementById('filterCategory').addEventListener('change', function() {
-            |     const category = this.value;
+            | function updateGalleryOptions() {
+            |     const category = document.getElementById('filterCategory').value;
             |     const gallerySelect = document.getElementById('filterGallery');
+            |     const currentGallery = gallerySelect.value;
             |     gallerySelect.innerHTML = '<option value="">All Galleries</option>';
             |     
-            |     if (category) {
-            |         const galleries = new Set();
-            |         const rows = document.querySelectorAll('#videoTable tbody tr');
-            |         rows.forEach(row => {
-            |             const catInput = row.querySelector('.row-category');
-            |             const galInput = row.querySelector('.row-gallery');
-            |             if (catInput && catInput.value === category && galInput) {
-            |                 galleries.add(galInput.value);
-            |             }
-            |         });
-            |         galleries.forEach(gallery => {
-            |             const option = document.createElement('option');
-            |             option.value = gallery;
-            |             option.textContent = gallery;
-            |             gallerySelect.appendChild(option);
-            |         });
-            |     } else {
-            |         populateGalleryFilter();
+            |     const galleries = new Set();
+            |     const rows = document.querySelectorAll('#videoTable tbody tr');
+            |     rows.forEach(row => {
+            |         const catInput = row.querySelector('.row-category');
+            |         const galInput = row.querySelector('.row-gallery');
+            |         if (galInput && (!category || (catInput && catInput.value === category))) {
+            |             galleries.add(galInput.value);
+            |         }
+            |     });
+            |     
+            |     galleries.forEach(gallery => {
+            |         const option = document.createElement('option');
+            |         option.value = gallery;
+            |         option.textContent = gallery;
+            |         gallerySelect.appendChild(option);
+            |     });
+            |     
+            |     if (currentGallery && Array.from(galleries).includes(currentGallery)) {
+            |         gallerySelect.value = currentGallery;
             |     }
-            |     applyFilters();
-            | });
+            | }
+            | 
+            | function updateCategoryOptions() {
+            |     const gallery = document.getElementById('filterGallery').value;
+            |     const categorySelect = document.getElementById('filterCategory');
+            |     const currentCategory = categorySelect.value;
+            |     categorySelect.innerHTML = '<option value="">All Categories</option>';
+            |     
+            |     const categories = new Set();
+            |     const rows = document.querySelectorAll('#videoTable tbody tr');
+            |     rows.forEach(row => {
+            |         const catInput = row.querySelector('.row-category');
+            |         const galInput = row.querySelector('.row-gallery');
+            |         if (catInput && (!gallery || (galInput && galInput.value === gallery))) {
+            |             categories.add(catInput.value);
+            |         }
+            |     });
+            |     
+            |     categories.forEach(category => {
+            |         const option = document.createElement('option');
+            |         option.value = category;
+            |         option.textContent = category;
+            |         categorySelect.appendChild(option);
+            |     });
+            |     
+            |     if (currentCategory && Array.from(categories).includes(currentCategory)) {
+            |         categorySelect.value = currentCategory;
+            |     }
+            | }
             | 
 
             | 

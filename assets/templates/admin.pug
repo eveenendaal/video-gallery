@@ -43,10 +43,13 @@ html
                 
                 div.box.mb-4
                     h3.subtitle.is-5 Bulk Operations
-                    div.field.is-grouped
+                    div.field.is-grouped.is-grouped-multiline
                         div.control
                             label.label.is-small Thumbnail Time (ms)
                             input.input.is-small#bulkTimeMs(type="number" value="1000" min="0" step="100")
+                        div.control
+                            label.label.is-small Parallel Operations
+                            input.input.is-small#parallelOps(type="number" value="3" min="1" max="10" step="1" title="Number of operations to run in parallel")
                         div.control
                             label.label.is-small &nbsp;
                             button.button.is-info.is-small#btnGenerate(onclick="generateSelectedThumbnails()" disabled)
@@ -258,9 +261,10 @@ html
             |     document.getElementById('btnClear').disabled = count === 0;
             | }
             | 
-            | function generateSelectedThumbnails() {
+            | async function generateSelectedThumbnails() {
             |     const timeMs = document.getElementById('bulkTimeMs').value;
-            |     const checked = document.querySelectorAll('.video-checkbox:checked');
+            |     const parallelOps = parseInt(document.getElementById('parallelOps').value) || 3;
+            |     const checked = Array.from(document.querySelectorAll('.video-checkbox:checked'));
             |     
             |     if (checked.length === 0) return;
             |     
@@ -269,20 +273,28 @@ html
             |     let completed = 0;
             |     const total = checked.length;
             |     
-            |     checked.forEach(cb => {
-            |         const row = cb.closest('tr');
-            |         const videoPath = row.querySelector('.video-path').value;
-            |         generateThumbnail(row, videoPath, timeMs, function() {
-            |             completed++;
-            |             if (completed === total) {
-            |                 setTimeout(function() { location.reload(); }, 2000);
-            |             }
-            |         });
-            |     });
+            |     // Process in batches with limited parallelism
+            |     for (let i = 0; i < checked.length; i += parallelOps) {
+            |         const batch = checked.slice(i, i + parallelOps);
+            |         await Promise.all(batch.map(cb => {
+            |             return new Promise((resolve) => {
+            |                 const row = cb.closest('tr');
+            |                 const videoPath = row.querySelector('.video-path').value;
+            |                 generateThumbnail(row, videoPath, timeMs, function() {
+            |                     completed++;
+            |                     if (completed === total) {
+            |                         setTimeout(function() { location.reload(); }, 2000);
+            |                     }
+            |                     resolve();
+            |                 });
+            |             });
+            |         }));
+            |     }
             | }
             | 
-            | function clearSelectedThumbnails() {
-            |     const checked = document.querySelectorAll('.video-checkbox:checked');
+            | async function clearSelectedThumbnails() {
+            |     const parallelOps = parseInt(document.getElementById('parallelOps').value) || 3;
+            |     const checked = Array.from(document.querySelectorAll('.video-checkbox:checked'));
             |     
             |     if (checked.length === 0) return;
             |     
@@ -291,18 +303,27 @@ html
             |     let completed = 0;
             |     const total = checked.length;
             |     
-            |     checked.forEach(cb => {
-            |         const row = cb.closest('tr');
-            |         const thumbnailPath = row.querySelector('.thumbnail-path').value;
-            |         if (thumbnailPath) {
-            |             clearThumbnail(row, thumbnailPath, function() {
-            |                 completed++;
-            |                 if (completed === total) {
-            |                     setTimeout(function() { location.reload(); }, 2000);
+            |     // Process in batches with limited parallelism
+            |     for (let i = 0; i < checked.length; i += parallelOps) {
+            |         const batch = checked.slice(i, i + parallelOps);
+            |         await Promise.all(batch.map(cb => {
+            |             return new Promise((resolve) => {
+            |                 const row = cb.closest('tr');
+            |                 const thumbnailPath = row.querySelector('.thumbnail-path').value;
+            |                 if (thumbnailPath) {
+            |                     clearThumbnail(row, thumbnailPath, function() {
+            |                         completed++;
+            |                         if (completed === total) {
+            |                             setTimeout(function() { location.reload(); }, 2000);
+            |                         }
+            |                         resolve();
+            |                     });
+            |                 } else {
+            |                     resolve();
             |                 }
             |             });
-            |         }
-            |     });
+            |         }));
+            |     }
             | }
             | 
             | function generateThumbnail(row, videoPath, timeMs, callback) {

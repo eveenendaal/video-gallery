@@ -54,6 +54,29 @@ html {
           }
         }
       }
+
+      // Admin page mobile responsiveness
+      @media (max-width: $tablet) {
+        padding-left: 1rem;
+        padding-right: 1rem;
+
+        .table-container {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .field.is-grouped, .field.is-grouped-multiline {
+          flex-wrap: wrap;
+
+          .control {
+            margin-bottom: 0.5rem;
+
+            label {
+              margin-bottom: 0.25rem;
+            }
+          }
+        }
+      }
     }
   }
 }

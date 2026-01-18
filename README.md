@@ -2,69 +2,9 @@
 
 The goal of this project is to build a serverless ready application for displaying a users video content library using only a single storage bucket.
 
-## Command Line Interface
+## Overview
 
-Video Gallery now includes a full-featured command-line interface with the following commands:
-
-```
-Usage:
-  video-gallery [command] [options]
-
-Commands:
-  list-categories     List all video categories
-  list-galleries      List all galleries
-  show-gallery [stub] Show videos in a specific gallery
-  export [format]     Export gallery data (formats: json)
-  generate-thumbnails Generate thumbnails for videos without existing thumbnails
-  serve               Start the web server (original functionality)
-
-Options:
-  -h, --help          Show this help message
-  -s, --secret-key    Set the SECRET_KEY (overrides environment variable)
-  -b, --bucket        Set the BUCKET_NAME (overrides environment variable)
-  -p, --port          Set the PORT (overrides environment variable)
-```
-
-### Examples
-
-List all categories:
-```bash
-video-gallery list-categories -s mysecretkey -b mybucket
-```
-
-List all galleries:
-```bash
-video-gallery list-galleries -s mysecretkey -b mybucket
-```
-
-Show a specific gallery:
-```bash
-video-gallery show-gallery gallery-stub-name -s mysecretkey -b mybucket
-```
-
-Export gallery data as JSON:
-```bash
-video-gallery export json -s mysecretkey -b mybucket
-```
-
-Generate thumbnails for videos that don't have them:
-```bash
-video-gallery generate-thumbnails -s mysecretkey -b mybucket
-```
-
-Generate thumbnails with additional options:
-```bash
-video-gallery generate-thumbnails -s mysecretkey -b mybucket -t 3000 -f -o /tmp/thumbs
-```
-Options:
-- `-t, --time` - Time in milliseconds where to extract the thumbnail frame (default: 1000ms)
-- `-f, --force` - Force regeneration of thumbnails even if they already exist
-- `-o, --output-dir` - Directory for temporary files (default: "thumbnails")
-
-Start the web server:
-```bash
-video-gallery serve -s mysecretkey -b mybucket -p 8080
-```
+Video Gallery is a web-based application that runs as a Docker container, providing an interface to browse and play videos organized in galleries. The application is designed to run on serverless platforms like Google Cloud Run, requiring only a single storage bucket for video files.
 
 ## Web Interface
 
@@ -243,7 +183,13 @@ The project follows a standard Go application structure:
 Like I said in the summary, this application can run in Cloud Run for essentially no cost, and only needs a single Storage Bucket to function. Below I will describe the structure of those setups.
 
 ### Cloud Run
-To get started, simply copy the [docker image](ghcr.io/eveenendaal/video-gallery) to your artifact repository in GCP and start up the image in cloud run. You'll need to configure the application with a service account that has read access to your storage bucket. Next, you'll need to define the following environmental variables.
+
+The application is available as a Docker image at `ghcr.io/eveenendaal/video-gallery:latest`. 
+
+To deploy to Cloud Run:
+1. Pull the Docker image from GitHub Container Registry or use it directly in Cloud Run
+2. Configure a service account with read access to your storage bucket
+3. Set the following environment variables:
 
 **BUCKET_NAME** - The bucket with the video files. This is needed to access the bucket.
 
@@ -257,7 +203,18 @@ You can find example terraform code in the [terraform](terraform) directory.
 
 ### Running Locally
 
-To run locally, you need to configure the 3 environment variables above as well as set up the default gcp credentials. You can do this by installing the [Google Cloud SDK](https://cloud.google.com/sdk/) and running `gcloud auth login --update-adc`.
+To run the application locally using Docker:
+
+```bash
+docker run -p 8080:8080 \
+  -e SECRET_KEY=your-secret-key \
+  -e BUCKET_NAME=your-bucket-name \
+  -e TMDB_API_KEY=your-tmdb-key \
+  -v ~/.config/gcloud:/home/appuser/.config/gcloud:ro \
+  ghcr.io/eveenendaal/video-gallery:latest
+```
+
+You need to configure the environment variables above as well as set up the default GCP credentials. You can do this by installing the [Google Cloud SDK](https://cloud.google.com/sdk/) and running `gcloud auth login --update-adc`, then mounting the credentials directory into the container as shown above.
 
 ### Storage Bucket
 The application assumes the Storage Bucket is stored as follows:
@@ -285,13 +242,3 @@ Here's a real example
     * Video of Alice 3.mp4
 
 The code parses the bucket and creates a list of categories, groups, and videos. The code also looks for a thumbnail for each video. If a thumbnail is not found, the thumbnail url will be null.
-
-## Releases
-
-Pre-built binaries are available for download from the [Releases](https://github.com/eveenendaal/video-gallery/releases) page. Binaries are provided for:
-
-- **Linux**: amd64 and arm64 architectures
-- **macOS**: amd64 (Intel) and arm64 (Apple Silicon) architectures  
-- **Windows**: amd64 and arm64 architectures
-
-Each release includes checksums for verification. To create a new release, simply create and push a git tag with semantic versioning (e.g., `v1.0.0`).

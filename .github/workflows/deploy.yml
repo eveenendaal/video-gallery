@@ -76,65 +76,6 @@ jobs:
           build-args: |
             VERSION=${{ steps.bump.outputs.new_tag }}
 
-  release:
-    runs-on: ubuntu-latest
-    needs: build-and-deploy
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: 'stable'
-          cache: true
-
-      - name: Build binaries
-        env:
-          VERSION: ${{ needs.build-and-deploy.outputs.version }}
-        run: |
-          # Create release directory
-          mkdir -p release
-
-          # Create VERSION file
-          echo "${VERSION}" > release/VERSION
-
-          # Set version for builds
-          LDFLAGS="-X video-gallery/cmd.Version=${VERSION}"
-
-          # Build for multiple platforms
-          GOOS_LIST=("linux" "darwin" "windows")
-          GOARCH_LIST=("amd64" "arm64")
-          
-          for GOOS in "${GOOS_LIST[@]}"; do
-            for GOARCH in "${GOARCH_LIST[@]}"; do
-              output="release/video-gallery-${GOOS}-${GOARCH}"
-              
-              if [ "$GOOS" = "windows" ]; then
-                output="${output}.exe"
-              fi
-              
-              echo "Building for ${GOOS}/${GOARCH}..."
-              GOOS=$GOOS GOARCH=$GOARCH go build \
-                -ldflags "${LDFLAGS}" \
-                -o "$output" .
-            done
-          done
-
-      - name: Create checksums
-        run: |
-          cd release
-          sha256sum * > checksums.txt
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: release/*
-          name: Release ${{ needs.build-and-deploy.outputs.version }}
-          tag_name: ${{ needs.build-and-deploy.outputs.version }}
-
   cleanup:
     runs-on: ubuntu-latest
     needs: build-and-deploy

@@ -43,10 +43,11 @@ html
                 
                 div.box.mb-4
                     h3.subtitle.is-5 Bulk Operations
+                    p.is-size-7.mb-3 Note: Bulk operations only support "Extract Frame" mode (not Movie Poster lookup)
                     div.field.is-grouped.is-grouped-multiline
                         div.control
-                            label.label.is-small Thumbnail Time (ms)
-                            input.input.is-small#bulkTimeMs(type="number" value="1000" min="0" step="100")
+                            label.label.is-small Frame Time (ms)
+                            input.input.is-small#bulkTimeMs(type="number" value="1000" min="0" step="100" title="Milliseconds into video to extract frame")
                         div.control
                             label.label.is-small(for="parallelOps") Parallel Operations
                             input.input.is-small#parallelOps(type="number" value="3" min="1" max="10" step="1" title="Number of operations to run in parallel")
@@ -112,13 +113,18 @@ html
                                             td
                                                 div.field.has-addons
                                                     div.control
-                                                        input.input.is-small.time-input(type="number" value="1000" min="0" step="100" style="width:80px")
+                                                        div.select.is-small
+                                                            select.thumbnail-mode(onchange="toggleTimeInput(this)")
+                                                                option(value="generate") 🎬 Extract Frame
+                                                                option(value="poster") 🎥 Movie Poster
+                                                    div.control.time-input-control
+                                                        input.input.is-small.time-input(type="number" value="1000" min="0" step="100" style="width:80px" placeholder="Time (ms)")
                                                     div.control
-                                                        button.button.is-info.is-small.btn-generate(title="Generate")
+                                                        button.button.is-info.is-small.btn-generate(title="Generate thumbnail")
                                                             span 📷
                                                     if video.Thumbnail
                                                         div.control
-                                                            button.button.is-danger.is-small.btn-clear(title="Clear")
+                                                            button.button.is-danger.is-small.btn-clear(title="Clear thumbnail")
                                                                 span 🗑️
                                                 div.notification.is-hidden.mt-2.is-small.status-msg
 
@@ -189,6 +195,11 @@ html
             | 
             | document.addEventListener('DOMContentLoaded', function() {
             |     restoreFilterState();
+            |     
+            |     /* Initialize time input visibility based on mode */
+            |     document.querySelectorAll('.thumbnail-mode').forEach(function(select) {
+            |         toggleTimeInput(select);
+            |     });
             | });
             | 
             | document.getElementById('videoTable').addEventListener('click', function(e) {
@@ -200,13 +211,43 @@ html
             |         const videoPath = row.querySelector('.video-path').value;
             |         const timeInput = row.querySelector('.time-input');
             |         const timeMs = timeInput.value;
-            |         generateThumbnail(row, videoPath, timeMs);
+            |         const mode = row.querySelector('.thumbnail-mode').value;
+            |         
+            |         if (mode === 'poster') {
+            |             const videoName = row.querySelector('.row-video').value;
+            |             const movieTitle = extractMovieTitle(videoName);
+            |             fetchMoviePoster(row, videoPath, movieTitle);
+            |         } else {
+            |             generateThumbnail(row, videoPath, timeMs);
+            |         }
             |     } else if (clearBtn) {
             |         const row = clearBtn.closest('tr');
             |         const thumbnailPath = row.querySelector('.thumbnail-path').value;
             |         clearThumbnail(row, thumbnailPath);
             |     }
             | });
+            | 
+            | function extractMovieTitle(videoName) {
+            |     /* Remove file extensions */
+            |     let title = videoName.replace(/\.(mp4|m4v|webm|mov|avi|mkv)$/i, '');
+            |     /* Remove year in parentheses or brackets */
+            |     title = title.replace(/[\(\[][12]\d{3}[\)\]]/g, '').trim();
+            |     /* Replace dots, underscores with spaces */
+            |     title = title.replace(/[._]/g, ' ').trim();
+            |     return title;
+            | }
+            | 
+            | function toggleTimeInput(selectElement) {
+            |     const row = selectElement.closest('tr');
+            |     const timeInputControl = row.querySelector('.time-input-control');
+            |     const mode = selectElement.value;
+            |     
+            |     if (mode === 'poster') {
+            |         timeInputControl.style.display = 'none';
+            |     } else {
+            |         timeInputControl.style.display = '';
+            |     }
+            | }
             | 
             | function populateGalleryFilter() {
             |     const gallerySelect = document.getElementById('filterGallery');
@@ -492,4 +533,111 @@ html
             |         statusDiv.textContent = 'Error: ' + error.message;
             |         if (callback) callback();
             |     });
+            | }
+            | 
+            | function fetchMoviePoster(row, videoPath, movieTitle) {
+            |     const statusDiv = row.querySelector('.status-msg');
+            |     statusDiv.classList.remove('is-hidden', 'is-success', 'is-danger');
+            |     statusDiv.classList.add('is-info');
+            |     statusDiv.innerHTML = '<span>Searching for movie...</span>';
+            |     
+            |     /* First, search for the movie and show results */
+            |     fetch('/' + secretKey + '/admin/api/search-movie-poster?movieTitle=' + encodeURIComponent(movieTitle))
+            |         .then(function(response) { return response.json(); })
+            |         .then(function(results) {
+            |             if (!results || results.length === 0) {
+            |                 statusDiv.classList.remove('is-info', 'is-success');
+            |                 statusDiv.classList.add('is-danger');
+            |                 statusDiv.innerHTML = 'No movies found for: ' + movieTitle;
+            |                 return;
+            |             }
+            |             
+            |             /* Show poster selection UI */
+            |             statusDiv.classList.remove('is-danger');
+            |             statusDiv.classList.add('is-info');
+            |             
+            |             let html = '<div class="poster-selection"><p class="mb-3"><strong>Select the correct movie:</strong></p><div class="columns is-multiline is-mobile is-variable is-2">';
+            |             
+            |             results.slice(0, 5).forEach(function(movie, index) {
+            |                 html += '<div class="column is-one-quarter-desktop is-one-third-tablet is-half-mobile">';
+            |                 html += '<div class="card poster-card" data-video-path="' + videoPath + '" data-movie-title="' + movie.title.replace(/"/g, '&quot;') + '">';
+            |                 html += '<div class="card-image"><figure class="image is-2by3">';
+            |                 html += '<img src="' + movie.thumbnailUrl + '" alt="' + movie.title + '">';
+            |                 html += '</figure></div>';
+            |                 html += '<div class="card-content p-2"><p class="is-size-7 has-text-centered has-text-weight-semibold">' + movie.title;
+            |                 if (movie.year) html += '<br><span class="has-text-grey">(' + movie.year + ')</span>';
+            |                 html += '</p></div></div></div>';
+            |             });
+            |             
+            |             html += '</div><button class="button is-small is-light mt-2 cancel-poster-btn">Cancel</button></div>';
+            |             
+            |             statusDiv.innerHTML = html;
+            |             
+            |             /* Add click handlers to poster cards */
+            |             statusDiv.querySelectorAll('.poster-card').forEach(function(card) {
+            |                 card.addEventListener('click', function() {
+            |                     const videoPath = this.dataset.videoPath;
+            |                     const movieTitle = this.dataset.movieTitle;
+            |                     confirmPosterSelection(row, videoPath, movieTitle);
+            |                 });
+            |             });
+            |             
+            |             /* Add cancel button handler */
+            |             statusDiv.querySelector('.cancel-poster-btn').addEventListener('click', function() {
+            |                 cancelPosterSelection(statusDiv);
+            |             });
+            |             
+            |             /* Store results in the row for later use */
+            |             row.dataset.posterResults = JSON.stringify(results);
+            |         })
+            |         .catch(function(error) {
+            |             statusDiv.classList.remove('is-info', 'is-success');
+            |             statusDiv.classList.add('is-danger');
+            |             statusDiv.innerHTML = 'Error: ' + error.message;
+            |         });
+            | }
+            | 
+            | function confirmPosterSelection(row, videoPath, movieTitle) {
+            |     const statusDiv = row.querySelector('.status-msg');
+            |     
+            |     statusDiv.classList.remove('is-danger');
+            |     statusDiv.classList.add('is-info');
+            |     statusDiv.innerHTML = '<progress class="progress is-small is-info" value="0" max="100">0%</progress><span>Fetching poster...</span>';
+            |     
+            |     const eventSource = new EventSource('/' + secretKey + '/admin/api/fetch-movie-poster?videoPath=' + encodeURIComponent(videoPath) + '&movieTitle=' + encodeURIComponent(movieTitle));
+            |     
+            |     eventSource.onmessage = function(event) {
+            |         const data = JSON.parse(event.data);
+            |         
+            |         if (data.error) {
+            |             eventSource.close();
+            |             statusDiv.classList.remove('is-info', 'is-success');
+            |             statusDiv.classList.add('is-danger');
+            |             statusDiv.innerHTML = 'Error: ' + data.error;
+            |             return;
+            |         }
+            |         
+            |         if (data.progress === 100) {
+            |             eventSource.close();
+            |             statusDiv.classList.remove('is-info', 'is-danger');
+            |             statusDiv.classList.add('is-success');
+            |             statusDiv.innerHTML = 'Movie poster fetched successfully!';
+            |             setTimeout(function() { location.reload(); }, 2000);
+            |             return;
+            |         }
+            |         
+            |         statusDiv.innerHTML = '<progress class="progress is-small is-info" value="' + data.progress + '" max="100">' + data.progress + '%</progress><span>' + data.step + '...</span>';
+            |     };
+            |     
+            |     eventSource.onerror = function(error) {
+            |         eventSource.close();
+            |         statusDiv.classList.remove('is-info', 'is-success');
+            |         statusDiv.classList.add('is-danger');
+            |         statusDiv.innerHTML = 'Error: Connection failed';
+            |     };
+            | }
+            | 
+            | function cancelPosterSelection(statusDiv) {
+            |     statusDiv.classList.add('is-hidden');
+            |     statusDiv.innerHTML = '';
             | }

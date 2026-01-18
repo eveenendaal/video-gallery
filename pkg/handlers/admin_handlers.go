@@ -208,3 +208,101 @@ func BulkClearThumbnailsHandler(w http.ResponseWriter, r *http.Request) {
 		"deleted": deleted,
 	})
 }
+
+// FetchMoviePosterHandler handles API requests to fetch a movie poster
+func FetchMoviePosterHandler(w http.ResponseWriter, r *http.Request) {
+	var videoPath, movieTitle string
+
+	// Support both POST (JSON body) and GET (query params for EventSource)
+	if r.Method == http.MethodGet {
+		videoPath = r.URL.Query().Get("videoPath")
+		movieTitle = r.URL.Query().Get("movieTitle")
+	} else if r.Method == http.MethodPost {
+		var req struct {
+			VideoPath  string `json:"videoPath"`
+			MovieTitle string `json:"movieTitle"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+		videoPath = req.VideoPath
+		movieTitle = req.MovieTitle
+	} else {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if videoPath == "" || movieTitle == "" {
+		http.Error(w, "videoPath and movieTitle are required", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("Fetching movie poster for: %s (video: %s)", movieTitle, videoPath)
+
+	// Set headers for SSE
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	// Progress callback
+	progressCb := func(step string, progress int) {
+		data := map[string]interface{}{
+			"step":     step,
+			"progress": progress,
+		}
+		jsonData, _ := json.Marshal(data)
+		w.Write([]byte("data: "))
+		w.Write(jsonData)
+		w.Write([]byte("\n\n"))
+		flusher.Flush()
+	}
+
+	// Fetch movie poster with progress updates
+	if err := services.FetchMoviePoster(videoPath, movieTitle, progressCb); err != nil {
+		log.Printf("Error fetching movie poster: %v", err)
+		errorData := map[string]interface{}{
+			"error":    err.Error(),
+			"progress": -1,
+		}
+		jsonData, _ := json.Marshal(errorData)
+		w.Write([]byte("data: "))
+		w.Write(jsonData)
+		w.Write([]byte("\n\n"))
+		flusher.Flush()
+		return
+	}
+}
+
+// SearchMoviePosterHandler handles API requests to search for movie posters
+func SearchMoviePosterHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	movieTitle := r.URL.Query().Get("movieTitle")
+	if movieTitle == "" {
+		http.Error(w, "movieTitle query parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("Searching movie posters for: %s", movieTitle)
+
+	results, err := services.SearchMoviePoster(movieTitle)
+	if err != nil {
+		log.Printf("Error searching movie posters: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(results)
+}

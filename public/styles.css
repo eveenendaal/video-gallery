@@ -10380,4 +10380,35 @@ tr.is-processing {
   background-color: #e8f5ff !important;
 }
 
+.poster-selection {
+  padding: 1.5rem;
+  border: 2px solid #3273dc;
+  border-radius: 6px;
+  background-color: #f8f9fa;
+  max-width: 100%;
+}
+
+.poster-card {
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: 2px solid transparent;
+  height: 100%;
+}
+
+.poster-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  border-color: #3273dc;
+}
+
+.poster-card .card-image img {
+  object-fit: cover;
+  width: 100%;
+  height: 100%;
+}
+
+.poster-card .card-content {
+  min-height: 60px;
+}
+
 /*# sourceMappingURL=styles.css.map */

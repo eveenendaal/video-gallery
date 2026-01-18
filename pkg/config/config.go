@@ -11,6 +11,7 @@ type Config struct {
 	SecretKey  string
 	BucketName string
 	Port       string
+	TMDbAPIKey string
 }
 
 // ErrSecretKeyNotSet is returned when the SECRET_KEY environment variable is not set
@@ -36,10 +37,13 @@ func Load() (*Config, error) {
 		port = "8080"
 	}
 
+	tmdbAPIKey := os.Getenv("TMDB_API_KEY")
+
 	return &Config{
 		SecretKey:  secretKey,
 		BucketName: bucketName,
 		Port:       port,
+		TMDbAPIKey: tmdbAPIKey,
 	}, nil
 }
 

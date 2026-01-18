@@ -95,23 +95,36 @@ The admin interface provides powerful tools for managing video thumbnails:
 
 **Features:**
 - View all videos with their current thumbnail status
-- Generate thumbnails for individual videos with customizable time offset
+- Generate thumbnails from video frames with customizable time offset (for home movies)
+- Fetch movie posters from TMDb database (for actual movies)
 - Clear thumbnails for individual videos
-- Bulk generate thumbnails for all videos at once
-- Bulk clear all thumbnails with confirmation
+- Filter and sort videos by category, gallery, or status
+- Select multiple videos for bulk operations
 
 **Individual Video Operations:**
 Each video has controls to:
-1. Set the time in milliseconds where the thumbnail should be extracted (e.g., 1000ms = 1 second into the video)
-2. Generate a new thumbnail at that timestamp
-3. Clear the existing thumbnail (if present)
+1. Choose between "From Video" (extract frame) or "Movie Poster" (fetch from TMDb)
+2. For "From Video": Set the time in milliseconds where the thumbnail should be extracted (e.g., 1000ms = 1 second into the video)
+3. For "Movie Poster": The system automatically extracts the movie title from the filename and searches TMDb
+4. Generate/fetch the thumbnail
+5. Clear the existing thumbnail (if present)
 
 **Bulk Operations:**
-1. Set a default time offset for all videos
-2. Click "Generate All Thumbnails" to create thumbnails for all videos (or regenerate existing ones)
-3. Click "Clear All Thumbnails" to remove all thumbnails from storage (requires confirmation)
+1. Select multiple videos using checkboxes
+2. Set a default time offset for frame extraction
+3. Click "Generate Selected" to create thumbnails for selected videos
+4. Click "Clear Selected" to remove thumbnails from selected videos
+5. Adjust parallel operations (1-10) to control processing speed
 
-The interface will show the status of each operation and automatically refresh after successful completion.
+**Movie Poster Feature:**
+When using "Movie Poster" mode, the system:
+- Automatically extracts the movie title from the video filename
+- Removes file extensions, years in brackets, and normalizes formatting
+- Searches The Movie Database (TMDb) for matching movies
+- Downloads and uploads the official movie poster as the thumbnail
+- Requires TMDB_API_KEY environment variable to be set
+
+The interface will show real-time progress of each operation and automatically refresh after successful completion.
 
 ## Feed Schema
 
@@ -235,6 +248,8 @@ To get started, simply copy the [docker image](ghcr.io/eveenendaal/video-gallery
 **BUCKET_NAME** - The bucket with the video files. This is needed to access the bucket.
 
 **SECRET_KEY** - A unique string. This is used to prefix all galleries with a random string to prevent people from guessing the gallery url.
+
+**TMDB_API_KEY** (Optional) - API key from The Movie Database (TMDb) for fetching movie posters. Required if you want to use the "Movie Poster" feature in the admin panel. Get a free API key at https://www.themoviedb.org/settings/api
 
 #### Terraform
 

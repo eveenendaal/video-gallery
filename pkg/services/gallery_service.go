@@ -219,6 +219,16 @@ func BulkClearThumbnails() (int, error) {
 	return defaultService.BulkClearThumbnails()
 }
 
+// FetchMoviePoster searches for a movie poster and uploads it to storage
+func FetchMoviePoster(videoPath string, movieTitle string, progressCb ProgressCallback) error {
+	return defaultService.FetchMoviePoster(videoPath, movieTitle, progressCb)
+}
+
+// SearchMoviePoster searches for a movie and returns available posters
+func SearchMoviePoster(movieTitle string) ([]MoviePosterResult, error) {
+	return defaultService.SearchMoviePoster(movieTitle)
+}
+
 // GetVideosInternal returns all videos from the storage bucket
 func (s *Service) GetVideosInternal() []models.Video {
 	s.mu.RLock()

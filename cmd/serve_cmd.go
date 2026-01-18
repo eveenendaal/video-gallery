@@ -37,13 +37,15 @@ func serveWebsite(cfg *config.Config) {
 	http.HandleFunc("/gallery/", handlers.PageHandler)
 	http.HandleFunc(fmt.Sprintf("/%s/index", cfg.SecretKey), handlers.GalleryHandler)
 	http.HandleFunc(fmt.Sprintf("/%s/feed", cfg.SecretKey), handlers.FeedHandler)
-	
+
 	// Admin routes - all protected by secret key
 	http.HandleFunc(fmt.Sprintf("/%s/admin", cfg.SecretKey), handlers.AdminHandler)
 	http.HandleFunc(fmt.Sprintf("/%s/admin/api/generate-thumbnail", cfg.SecretKey), handlers.GenerateThumbnailHandler)
 	http.HandleFunc(fmt.Sprintf("/%s/admin/api/clear-thumbnail", cfg.SecretKey), handlers.ClearThumbnailHandler)
 	http.HandleFunc(fmt.Sprintf("/%s/admin/api/bulk-generate-thumbnails", cfg.SecretKey), handlers.BulkGenerateThumbnailsHandler)
 	http.HandleFunc(fmt.Sprintf("/%s/admin/api/bulk-clear-thumbnails", cfg.SecretKey), handlers.BulkClearThumbnailsHandler)
+	http.HandleFunc(fmt.Sprintf("/%s/admin/api/fetch-movie-poster", cfg.SecretKey), handlers.FetchMoviePosterHandler)
+	http.HandleFunc(fmt.Sprintf("/%s/admin/api/search-movie-poster", cfg.SecretKey), handlers.SearchMoviePosterHandler)
 
 	// Start server
 	cfg.PrintServerStartMessage()

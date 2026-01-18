@@ -46,8 +46,11 @@ func (s *Service) FetchMoviePoster(videoPath string, movieTitle string, progress
 
 	sendProgress("Searching for movie", 15)
 
+	// Clean the movie title for better search results
+	cleanTitle := cleanMovieTitle(movieTitle)
+
 	// Search for movie
-	searchURL := fmt.Sprintf("%s?api_key=%s&query=%s", tmdbSearchURL, apiKey, url.QueryEscape(movieTitle))
+	searchURL := fmt.Sprintf("%s?api_key=%s&query=%s", tmdbSearchURL, apiKey, url.QueryEscape(cleanTitle))
 	resp, err := http.Get(searchURL)
 	if err != nil {
 		return fmt.Errorf("failed to search movie: %v", err)
@@ -68,7 +71,8 @@ func (s *Service) FetchMoviePoster(videoPath string, movieTitle string, progress
 		return fmt.Errorf("no movie found for title: %s", movieTitle)
 	}
 
-	movie := result.Results[0]
+	// Try to find exact match first, then fall back to partial match
+	movie := findBestMatch(result.Results, cleanTitle)
 	if movie.PosterPath == nil || *movie.PosterPath == "" {
 		return fmt.Errorf("no poster available for: %s", movieTitle)
 	}
@@ -152,7 +156,10 @@ func (s *Service) SearchMoviePoster(movieTitle string) ([]MoviePosterResult, err
 		return nil, fmt.Errorf("TMDB_API_KEY environment variable not set")
 	}
 
-	searchURL := fmt.Sprintf("%s?api_key=%s&query=%s", tmdbSearchURL, apiKey, url.QueryEscape(movieTitle))
+	// Clean the movie title for better search results
+	cleanTitle := cleanMovieTitle(movieTitle)
+
+	searchURL := fmt.Sprintf("%s?api_key=%s&query=%s", tmdbSearchURL, apiKey, url.QueryEscape(cleanTitle))
 	resp, err := http.Get(searchURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search movie: %v", err)
@@ -197,4 +204,56 @@ func extractYear(releaseDate string) string {
 		return releaseDate[:4]
 	}
 	return ""
+}
+
+// findBestMatch finds the best matching movie from results
+// First tries exact match (case-insensitive), then falls back to partial match
+func findBestMatch(results []struct {
+	ID          int     `json:"id"`
+	Title       string  `json:"title"`
+	PosterPath  *string `json:"poster_path"`
+	ReleaseDate string  `json:"release_date"`
+}, searchTitle string) struct {
+	ID          int     `json:"id"`
+	Title       string  `json:"title"`
+	PosterPath  *string `json:"poster_path"`
+	ReleaseDate string  `json:"release_date"`
+} {
+	searchLower := strings.ToLower(searchTitle)
+
+	// First pass: look for exact match
+	for _, movie := range results {
+		if strings.ToLower(movie.Title) == searchLower {
+			return movie
+		}
+	}
+
+	// Second pass: look for partial match (contains)
+	for _, movie := range results {
+		if strings.Contains(strings.ToLower(movie.Title), searchLower) {
+			return movie
+		}
+	}
+
+	// No match found, return first result
+	return results[0]
+}
+
+// cleanMovieTitle removes common metadata from movie titles for better search results
+// Examples: "Empire Strikes Back (Despecialized v2 0)" -> "Empire Strikes Back"
+func cleanMovieTitle(title string) string {
+	// Remove content in parentheses (e.g., version info, year, quality)
+	if idx := strings.Index(title, "("); idx != -1 {
+		title = title[:idx]
+	}
+
+	// Remove content in brackets
+	if idx := strings.Index(title, "["); idx != -1 {
+		title = title[:idx]
+	}
+
+	// Trim whitespace
+	title = strings.TrimSpace(title)
+
+	return title
 }

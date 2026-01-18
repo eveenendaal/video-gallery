@@ -85,9 +85,10 @@ html
                                 each gallery in category.Galleries
                                     each video in gallery.Videos
                                         tr.video-row
-                                            input.row-category(type="hidden" value=category.Name)
-                                            input.row-gallery(type="hidden" value=gallery.Name)
-                                            input.row-video(type="hidden" value=video.Name)
+                                            td(style="display:none;")
+                                                input.row-category(type="hidden" value=category.Name)
+                                                input.row-gallery(type="hidden" value=gallery.Name)
+                                                input.row-video(type="hidden" value=video.Name)
                                             td
                                                 input.video-checkbox(type="checkbox" onchange="updateSelectedCount()")
                                             td
@@ -149,7 +150,7 @@ html
             |                 sortOrder = filterState.sortOrder;
             |             }
             |             
-            |             // Restore gallery filter after populating options
+            |             /* Restore gallery filter after populating options */
             |             populateGalleryFilter();
             |             if (filterState.gallery) {
             |                 document.getElementById('filterGallery').value = filterState.gallery;
@@ -311,7 +312,7 @@ html
             |     let completed = 0;
             |     const total = checked.length;
             |     
-            |     // Process in batches with limited parallelism
+            |     /* Process in batches with limited parallelism */
             |     for (let i = 0; i < checked.length; i += parallelOps) {
             |         const batch = checked.slice(i, i + parallelOps);
             |         await Promise.all(batch.map(cb => {
@@ -346,7 +347,7 @@ html
             |     let completed = 0;
             |     const total = checked.length;
             |     
-            |     // Process in batches with limited parallelism
+            |     /* Process in batches with limited parallelism */
             |     for (let i = 0; i < checked.length; i += parallelOps) {
             |         const batch = checked.slice(i, i + parallelOps);
             |         await Promise.all(batch.map(cb => {

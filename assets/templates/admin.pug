@@ -48,7 +48,7 @@ html
                             label.label.is-small Thumbnail Time (ms)
                             input.input.is-small#bulkTimeMs(type="number" value="1000" min="0" step="100")
                         div.control
-                            label.label.is-small Parallel Operations
+                            label.label.is-small(for="parallelOps") Parallel Operations
                             input.input.is-small#parallelOps(type="number" value="3" min="1" max="10" step="1" title="Number of operations to run in parallel")
                         div.control
                             label.label.is-small &nbsp;
@@ -278,15 +278,20 @@ html
             |         const batch = checked.slice(i, i + parallelOps);
             |         await Promise.all(batch.map(cb => {
             |             return new Promise((resolve) => {
-            |                 const row = cb.closest('tr');
-            |                 const videoPath = row.querySelector('.video-path').value;
-            |                 generateThumbnail(row, videoPath, timeMs, function() {
-            |                     completed++;
-            |                     if (completed === total) {
-            |                         setTimeout(function() { location.reload(); }, 2000);
-            |                     }
+            |                 try {
+            |                     const row = cb.closest('tr');
+            |                     const videoPath = row.querySelector('.video-path').value;
+            |                     generateThumbnail(row, videoPath, timeMs, function() {
+            |                         completed++;
+            |                         if (completed === total) {
+            |                             setTimeout(function() { location.reload(); }, 2000);
+            |                         }
+            |                         resolve();
+            |                     });
+            |                 } catch (error) {
+            |                     console.error('Error processing thumbnail:', error);
             |                     resolve();
-            |                 });
+            |                 }
             |             });
             |         }));
             |     }
@@ -308,17 +313,22 @@ html
             |         const batch = checked.slice(i, i + parallelOps);
             |         await Promise.all(batch.map(cb => {
             |             return new Promise((resolve) => {
-            |                 const row = cb.closest('tr');
-            |                 const thumbnailPath = row.querySelector('.thumbnail-path').value;
-            |                 if (thumbnailPath) {
-            |                     clearThumbnail(row, thumbnailPath, function() {
-            |                         completed++;
-            |                         if (completed === total) {
-            |                             setTimeout(function() { location.reload(); }, 2000);
-            |                         }
+            |                 try {
+            |                     const row = cb.closest('tr');
+            |                     const thumbnailPath = row.querySelector('.thumbnail-path').value;
+            |                     if (thumbnailPath) {
+            |                         clearThumbnail(row, thumbnailPath, function() {
+            |                             completed++;
+            |                             if (completed === total) {
+            |                                 setTimeout(function() { location.reload(); }, 2000);
+            |                             }
+            |                             resolve();
+            |                         });
+            |                     } else {
             |                         resolve();
-            |                     });
-            |                 } else {
+            |                     }
+            |                 } catch (error) {
+            |                     console.error('Error clearing thumbnail:', error);
             |                     resolve();
             |                 }
             |             });

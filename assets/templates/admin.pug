@@ -126,9 +126,45 @@ html
             | const secretKey = '#{SecretKey}';
             | let sortOrder = {gallery: 'asc', category: 'asc'};
             | 
+            | function saveFilterState() {
+            |     const filterState = {
+            |         category: document.getElementById('filterCategory').value,
+            |         gallery: document.getElementById('filterGallery').value,
+            |         status: document.getElementById('filterStatus').value,
+            |         search: document.getElementById('filterSearch').value,
+            |         sortOrder: sortOrder
+            |     };
+            |     localStorage.setItem('adminFilterState', JSON.stringify(filterState));
+            | }
+            | 
+            | function restoreFilterState() {
+            |     const savedState = localStorage.getItem('adminFilterState');
+            |     if (savedState) {
+            |         try {
+            |             const filterState = JSON.parse(savedState);
+            |             document.getElementById('filterCategory').value = filterState.category || '';
+            |             document.getElementById('filterStatus').value = filterState.status || '';
+            |             document.getElementById('filterSearch').value = filterState.search || '';
+            |             if (filterState.sortOrder) {
+            |                 sortOrder = filterState.sortOrder;
+            |             }
+            |             
+            |             // Restore gallery filter after populating options
+            |             populateGalleryFilter();
+            |             if (filterState.gallery) {
+            |                 document.getElementById('filterGallery').value = filterState.gallery;
+            |             }
+            |             
+            |             applyFilters();
+            |         } catch (e) {
+            |             console.error('Error restoring filter state:', e);
+            |         }
+            |     }
+            | }
+            | 
             | document.addEventListener('DOMContentLoaded', function() {
             |     sortBy('category');
-            |     populateGalleryFilter();
+            |     restoreFilterState();
             | });
             | 
             | document.getElementById('videoTable').addEventListener('click', function(e) {
@@ -209,6 +245,7 @@ html
             |     });
             |     
             |     rows.forEach(row => tbody.appendChild(row));
+            |     saveFilterState();
             | }
             | 
             | function applyFilters() {
@@ -239,6 +276,7 @@ html
             |         
             |         row.style.display = show ? '' : 'none';
             |     });
+            |     saveFilterState();
             | }
             | 
             | function toggleSelectAll() {

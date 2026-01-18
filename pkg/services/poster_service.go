@@ -101,13 +101,17 @@ func (s *Service) FetchMoviePoster(videoPath string, movieTitle string, progress
 
 	thumbnailBaseName := getSafeFilename(thumbnailPath)
 	tmpThumbnailPath := filepath.Join(outputDir, thumbnailBaseName)
+	cleanTmpPath := filepath.Clean(tmpThumbnailPath)
+	if !strings.HasPrefix(cleanTmpPath, filepath.Clean(outputDir)) {
+		return fmt.Errorf("invalid path: path traversal detected")
+	}
 
-	tmpFile, err := os.Create(tmpThumbnailPath)
+	tmpFile, err := os.Create(cleanTmpPath)
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %v", err)
 	}
 	defer tmpFile.Close()
-	defer os.Remove(tmpThumbnailPath)
+	defer os.Remove(cleanTmpPath)
 
 	if _, err := io.Copy(tmpFile, posterResp.Body); err != nil {
 		return fmt.Errorf("failed to save poster: %v", err)
@@ -129,7 +133,7 @@ func (s *Service) FetchMoviePoster(videoPath string, movieTitle string, progress
 	// Clear old thumbnail
 	bucket.Object(thumbnailPath).Delete(ctx)
 
-	if err := uploadFile(ctx, bucket, tmpThumbnailPath, thumbnailPath); err != nil {
+	if err := uploadFile(ctx, bucket, cleanTmpPath, thumbnailPath); err != nil {
 		return fmt.Errorf("error uploading poster: %v", err)
 	}
 

@@ -76,33 +76,41 @@ func (s *Service) GenerateThumbnailWithProgress(videoPath string, timeMs int, pr
 
 	sendProgress("Downloading video", 30)
 	tmpVideoPath := filepath.Join(outputDir, videoBaseName)
-	if err := downloadFile(ctx, bucket, videoPath, tmpVideoPath); err != nil {
+	cleanVideoPath := filepath.Clean(tmpVideoPath)
+	if !strings.HasPrefix(cleanVideoPath, filepath.Clean(outputDir)) {
+		return fmt.Errorf("invalid path: path traversal detected")
+	}
+	if err := downloadFile(ctx, bucket, videoPath, cleanVideoPath); err != nil {
 		return fmt.Errorf("error downloading video: %v", err)
 	}
 	defer func() {
-		if err := os.Remove(tmpVideoPath); err != nil {
+		if err := os.Remove(cleanVideoPath); err != nil {
 			log.Printf("Warning: failed to remove temp file: %v", err)
 		}
 	}()
 
 	sendProgress("Generating thumbnail", 60)
 	tmpThumbnailPath := filepath.Join(outputDir, thumbnailBaseName)
-	if err := createThumbnailWithFFmpeg(tmpVideoPath, tmpThumbnailPath, timeMs); err != nil {
+	cleanThumbnailPath := filepath.Clean(tmpThumbnailPath)
+	if !strings.HasPrefix(cleanThumbnailPath, filepath.Clean(outputDir)) {
+		return fmt.Errorf("invalid path: path traversal detected")
+	}
+	if err := createThumbnailWithFFmpeg(cleanVideoPath, cleanThumbnailPath, timeMs); err != nil {
 		return fmt.Errorf("error creating thumbnail: %v", err)
 	}
 	defer func() {
-		if err := os.Remove(tmpThumbnailPath); err != nil {
+		if err := os.Remove(cleanThumbnailPath); err != nil {
 			log.Printf("Warning: failed to remove temp file: %v", err)
 		}
 	}()
 
 	sendProgress("Validating thumbnail", 80)
-	if err := validateThumbnail(tmpThumbnailPath); err != nil {
+	if err := validateThumbnail(cleanThumbnailPath); err != nil {
 		return fmt.Errorf("thumbnail validation failed: %v", err)
 	}
 
 	sendProgress("Uploading thumbnail", 85)
-	if err := uploadFile(ctx, bucket, tmpThumbnailPath, thumbnailPath); err != nil {
+	if err := uploadFile(ctx, bucket, cleanThumbnailPath, thumbnailPath); err != nil {
 		return fmt.Errorf("error uploading thumbnail: %v", err)
 	}
 
@@ -389,6 +397,12 @@ func downloadFile(ctx context.Context, bucket *storage.BucketHandle, src, dst st
 		return fmt.Errorf("destination must be absolute path")
 	}
 
+	// Ensure path is within allowed directory
+	expectedDir := filepath.Clean(filepath.Join(os.TempDir(), "video-gallery-thumbnails"))
+	if !strings.HasPrefix(cleanDst, expectedDir) {
+		return fmt.Errorf("invalid path: must be within temp directory")
+	}
+
 	f, err := os.Create(cleanDst)
 	if err != nil {
 		return fmt.Errorf("os.Create: %v", err)
@@ -422,6 +436,12 @@ func uploadFile(ctx context.Context, bucket *storage.BucketHandle, src, dst stri
 		return fmt.Errorf("source path must be absolute")
 	}
 
+	// Ensure path is within allowed directory
+	expectedDir := filepath.Clean(filepath.Join(os.TempDir(), "video-gallery-thumbnails"))
+	if !strings.HasPrefix(cleanSrc, expectedDir) {
+		return fmt.Errorf("invalid path: must be within temp directory")
+	}
+
 	data, err := os.ReadFile(cleanSrc)
 	if err != nil {
 		return fmt.Errorf("os.ReadFile: %v", err)
@@ -452,6 +472,12 @@ func validateThumbnail(thumbnailPath string) error {
 	cleanPath := filepath.Clean(thumbnailPath)
 	if !filepath.IsAbs(cleanPath) {
 		return fmt.Errorf("thumbnail path must be absolute")
+	}
+
+	// Ensure path is within allowed directory
+	expectedDir := filepath.Clean(filepath.Join(os.TempDir(), "video-gallery-thumbnails"))
+	if !strings.HasPrefix(cleanPath, expectedDir) {
+		return fmt.Errorf("invalid path: must be within temp directory")
 	}
 
 	f, err := os.Open(cleanPath)

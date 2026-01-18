@@ -161,7 +161,8 @@ func (s *Service) GetGalleriesInternal() []models.Gallery {
 		if g, exists := galleryMap[galleryName]; exists {
 			g.Videos = append(g.Videos, video)
 		} else {
-			// Generate Hash for gallery URL
+			// Generate Hash for gallery URL (non-security use case)
+			// This hash is used only for generating short URL identifiers, not for security purposes
 			hash := sha256.New()
 			hash.Write([]byte(galleryName + s.config.SecretKey))
 			hashStr := base64.URLEncoding.EncodeToString(hash.Sum(nil))[0:4]

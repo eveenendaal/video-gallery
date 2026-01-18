@@ -75,10 +75,8 @@ html
                                     input#selectAll(type="checkbox" onchange="toggleSelectAll()")
                                 th Thumbnail
                                 th Video
-                                th 
-                                    a(href="#" onclick="sortBy('gallery'); return false;") Gallery ↕
-                                th 
-                                    a(href="#" onclick="sortBy('category'); return false;") Category ↕
+                                th Gallery
+                                th Category
                                 th Status
                                 th Actions
                         tbody
@@ -130,7 +128,6 @@ html
 
         script
             | const secretKey = '#{SecretKey}';
-            | let sortOrder = {gallery: 'asc', category: 'asc'};
             | 
             | function saveFilterState() {
             |     const params = new URLSearchParams();
@@ -144,11 +141,6 @@ html
             |     if (status) params.set('status', status);
             |     if (search) params.set('search', search);
             |     
-            |     const sortCol = Object.keys(sortOrder).find(k => sortOrder[k] !== 'asc' || k === 'category');
-            |     const sortDir = sortOrder[sortCol] || 'asc';
-            |     if (sortCol) params.set('sortCol', sortCol);
-            |     if (sortDir) params.set('sortDir', sortDir);
-            |     
             |     const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
             |     window.history.replaceState({}, '', newUrl);
             | }
@@ -160,8 +152,6 @@ html
             |     const gallery = params.get('gallery') || '';
             |     const status = params.get('status') || '';
             |     const search = params.get('search') || '';
-            |     const sortCol = params.get('sortCol');
-            |     const sortDir = params.get('sortDir');
             |     
             |     document.getElementById('filterCategory').value = category;
             |     document.getElementById('filterStatus').value = status;
@@ -170,24 +160,6 @@ html
             |     populateGalleryFilter();
             |     if (gallery) {
             |         document.getElementById('filterGallery').value = gallery;
-            |     }
-            |     
-            |     if (sortCol && sortDir) {
-            |         sortOrder = {gallery: 'asc', category: 'asc'};
-            |         sortOrder[sortCol] = sortDir;
-            |         const tbody = document.querySelector('#videoTable tbody');
-            |         const rows = Array.from(tbody.querySelectorAll('tr'));
-            |         rows.sort((a, b) => {
-            |             const aInput = a.querySelector('.row-' + sortCol);
-            |             const bInput = b.querySelector('.row-' + sortCol);
-            |             let aVal = aInput ? aInput.value : '';
-            |             let bVal = bInput ? bInput.value : '';
-            |             const comparison = aVal.localeCompare(bVal);
-            |             return sortDir === 'asc' ? comparison : -comparison;
-            |         });
-            |         rows.forEach(row => tbody.appendChild(row));
-            |     } else {
-            |         sortBy('category');
             |     }
             |     
             |     applyFilters();
@@ -292,26 +264,7 @@ html
             |     applyFilters();
             | });
             | 
-            | function sortBy(column) {
-            |     const tbody = document.querySelector('#videoTable tbody');
-            |     const rows = Array.from(tbody.querySelectorAll('tr'));
-            |     
-            |     sortOrder[column] = sortOrder[column] === 'asc' ? 'desc' : 'asc';
-            |     const order = sortOrder[column];
-            |     
-            |     rows.sort((a, b) => {
-            |         const aInput = a.querySelector('.row-' + column);
-            |         const bInput = b.querySelector('.row-' + column);
-            |         let aVal = aInput ? aInput.value : '';
-            |         let bVal = bInput ? bInput.value : '';
-            |         
-            |         const comparison = aVal.localeCompare(bVal);
-            |         return order === 'asc' ? comparison : -comparison;
-            |     });
-            |     
-            |     rows.forEach(row => tbody.appendChild(row));
-            |     saveFilterState();
-            | }
+
             | 
             | function applyFilters() {
             |     const category = document.getElementById('filterCategory').value;

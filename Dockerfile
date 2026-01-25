@@ -3,10 +3,10 @@
 # with a Rust backend and compiled frontend assets.
 
 # Backend build stage
-FROM rust:alpine AS builder
+FROM rust:1.84-alpine AS builder
 
 # Install build dependencies
-RUN apk add --no-cache musl-dev pkgconfig openssl-dev openssl-libs-static
+RUN apk add --no-cache musl-dev pkgconfig openssl-dev
 
 WORKDIR /build
 

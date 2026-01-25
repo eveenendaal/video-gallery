@@ -2,6 +2,8 @@
 
 The goal of this project is to build a serverless ready application for displaying a users video content library using only a single storage bucket.
 
+**Technology Stack**: This application is built with Rust using the Axum web framework and Tera templating engine, providing high performance and memory safety.
+
 ## Overview
 
 Video Gallery is a web-based application that runs as a Docker container, providing an interface to browse and play videos organized in galleries. The application is designed to run on serverless platforms like Google Cloud Run, requiring only a single storage bucket for video files.
@@ -156,27 +158,28 @@ This tvOS application is compatible with this video feed
 
 ## Code Structure
 
-The project follows a standard Go application structure:
+The project follows a standard Rust application structure:
 
 ```
 .
 ├── api/              # API documentation and test requests
 ├── assets/           # Frontend assets
 │   ├── scss/        # SASS stylesheets
-│   └── templates/   # Pug templates
-├── build/           # Build and deployment files (Dockerfile, etc.)
-├── cmd/             # CLI command implementations
-├── config/          # Configuration files
+│   └── templates/   # Tera HTML templates
+├── build/           # Build and deployment files (legacy Dockerfile, etc.)
 ├── docs/            # Project documentation
-├── pkg/             # Go packages
-│   ├── config/      # Configuration management
+├── src/             # Rust source code
+│   ├── config.rs    # Configuration management
 │   ├── handlers/    # HTTP request handlers
-│   ├── models/      # Data models
-│   └── services/    # Business logic services
+│   ├── models.rs    # Data models
+│   ├── services/    # Business logic services
+│   └── main.rs      # Application entry point
 ├── public/          # Static web assets
 ├── schemas/         # JSON schemas
 ├── scripts/         # Build and automation scripts
-└── terraform/       # Infrastructure as code
+├── terraform/       # Infrastructure as code
+├── Cargo.toml       # Rust dependencies and project metadata
+└── Dockerfile       # Multi-stage Docker build
 ```
 
 ## Infrastructure

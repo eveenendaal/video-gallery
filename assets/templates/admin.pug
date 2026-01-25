@@ -1,0 +1,629 @@
+doctype html
+html
+    head
+        meta(name="viewport" content="width=device-width,initial-scale=1.0")
+        title Admin - Thumbnail Management
+        style 
+            include ../../public/styles.css
+    body
+        div.header.hero.is-dark.is-small
+            div.hero-head
+                div.container.has-text-centered-mobile.block
+                    h1.title.is-2 Admin - Thumbnail Management
+                    p.subtitle Browse and manage video thumbnails
+        div.container
+            div.section
+                h2.title.is-4 Video Management
+                
+                div.box.mb-4
+                    h3.subtitle.is-5 Filters
+                    div.field.is-grouped.is-grouped-multiline
+                        div.control
+                            label.label.is-small Category
+                            div.select.is-small
+                                select#filterCategory(onchange="updateGalleryOptions(); applyFilters()")
+                                    option(value="") All Categories
+                                    each category in Categories
+                                        option #{category.Name}
+                        div.control
+                            label.label.is-small Gallery
+                            div.select.is-small
+                                select#filterGallery(onchange="updateCategoryOptions(); applyFilters()")
+                                    option(value="") All Galleries
+                        div.control
+                            label.label.is-small Status
+                            div.select.is-small
+                                select#filterStatus(onchange="applyFilters()")
+                                    option(value="") All
+                                    option(value="has") Has Thumbnail
+                                    option(value="missing") Missing Thumbnail
+                        div.control
+                            label.label.is-small Search
+                            input.input.is-small#filterSearch(type="text" placeholder="Search videos..." oninput="applyFilters()")
+                
+                div.box.mb-4
+                    h3.subtitle.is-5 Bulk Operations
+                    p.is-size-7.mb-3 Note: Bulk operations only support "Extract Frame" mode (not Movie Poster lookup)
+                    div.field.is-grouped.is-grouped-multiline
+                        div.control
+                            label.label.is-small Frame Time (ms)
+                            input.input.is-small#bulkTimeMs(type="number" value="1000" min="0" step="100" title="Milliseconds into video to extract frame")
+                        div.control
+                            label.label.is-small(for="parallelOps") Parallel Operations
+                            input.input.is-small#parallelOps(type="number" value="3" min="1" max="10" step="1" title="Number of operations to run in parallel")
+                        div.control
+                            label.label.is-small &nbsp;
+                            button.button.is-info.is-small#btnGenerate(onclick="generateSelectedThumbnails()" disabled)
+                                span.icon
+                                    i 📷
+                                span Generate Selected
+                        div.control
+                            label.label.is-small &nbsp;
+                            button.button.is-danger.is-small#btnClear(onclick="clearSelectedThumbnails()" disabled)
+                                span.icon
+                                    i 🗑️
+                                span Clear Selected
+                        div.control
+                            label.label.is-small &nbsp;
+                            span.tag.is-info#selectedCount 0 selected
+                
+                div.table-container
+                    table.table.is-fullwidth.is-striped.is-hoverable#videoTable
+                        thead
+                            tr
+                                th
+                                    input#selectAll(type="checkbox" onchange="toggleSelectAll()")
+                                th Thumbnail
+                                th Video
+                                th Gallery
+                                th Category
+                                th Status
+                                th Actions
+                        tbody
+                            each category in Categories
+                                each gallery in category.Galleries
+                                    each video in gallery.Videos
+                                        tr.video-row
+                                            td(style="display:none;")
+                                                input.row-category(type="hidden" value=category.Name)
+                                                input.row-gallery(type="hidden" value=gallery.Name)
+                                                input.row-video(type="hidden" value=video.Name)
+                                            td
+                                                input.video-checkbox(type="checkbox" onchange="updateSelectedCount()")
+                                            td
+                                                if video.Thumbnail
+                                                    div.thumbnail-preview
+                                                        img(src=video.Thumbnail alt=video.Name)
+                                                else
+                                                    div.thumbnail-preview.thumbnail-missing
+                                                        span.is-size-3 ❌
+                                            td
+                                                strong #{video.Name}
+                                                input.video-path(type="hidden" value=video.VideoPath)
+                                                input.thumbnail-path(type="hidden" value=video.ThumbnailPath)
+                                            td #{gallery.Name}
+                                            td #{category.Name}
+                                            td
+                                                if video.Thumbnail
+                                                    span.tag.is-success.is-small Has Thumbnail
+                                                else
+                                                    span.tag.is-warning.is-small Missing
+                                            td
+                                                div.field.has-addons
+                                                    div.control
+                                                        div.select.is-small
+                                                            select.thumbnail-mode(onchange="toggleTimeInput(this)")
+                                                                option(value="generate") 🎬 Extract Frame
+                                                                option(value="poster") 🎥 Movie Poster
+                                                    div.control.time-input-control
+                                                        input.input.is-small.time-input(type="number" value="1000" min="0" step="100" style="width:80px" placeholder="Time (ms)")
+                                                    div.control
+                                                        button.button.is-info.is-small.btn-generate(title="Generate thumbnail")
+                                                            span 📷
+                                                    if video.Thumbnail
+                                                        div.control
+                                                            button.button.is-danger.is-small.btn-clear(title="Clear thumbnail")
+                                                                span 🗑️
+                                                div.notification.is-hidden.mt-2.is-small.status-msg
+
+        script
+            | const secretKey = '#{SecretKey}';
+            | 
+            | function saveFilterState() {
+            |     const params = new URLSearchParams();
+            |     const category = document.getElementById('filterCategory').value;
+            |     const gallery = document.getElementById('filterGallery').value;
+            |     const status = document.getElementById('filterStatus').value;
+            |     const search = document.getElementById('filterSearch').value;
+            |     
+            |     if (category) params.set('category', category);
+            |     if (gallery) params.set('gallery', gallery);
+            |     if (status) params.set('status', status);
+            |     if (search) params.set('search', search);
+            |     
+            |     const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+            |     window.history.replaceState({}, '', newUrl);
+            | }
+            | 
+            | function restoreFilterState() {
+            |     const params = new URLSearchParams(window.location.search);
+            |     
+            |     const category = params.get('category') || '';
+            |     const gallery = params.get('gallery') || '';
+            |     const status = params.get('status') || '';
+            |     const search = params.get('search') || '';
+            |     
+            |     document.getElementById('filterCategory').value = category;
+            |     document.getElementById('filterStatus').value = status;
+            |     document.getElementById('filterSearch').value = search;
+            |     
+            |     updateGalleryOptions();
+            |     if (gallery) {
+            |         document.getElementById('filterGallery').value = gallery;
+            |     }
+            |     updateCategoryOptions();
+            |     if (category) {
+            |         document.getElementById('filterCategory').value = category;
+            |     }
+            |     
+            |     applyFilters();
+            | }
+            | 
+            | document.addEventListener('DOMContentLoaded', function() {
+            |     restoreFilterState();
+            |     
+            |     /* Initialize time input visibility based on mode */
+            |     document.querySelectorAll('.thumbnail-mode').forEach(function(select) {
+            |         toggleTimeInput(select);
+            |     });
+            | });
+            | 
+            | document.getElementById('videoTable').addEventListener('click', function(e) {
+            |     const generateBtn = e.target.closest('.btn-generate');
+            |     const clearBtn = e.target.closest('.btn-clear');
+            |     
+            |     if (generateBtn) {
+            |         const row = generateBtn.closest('tr');
+            |         const videoPath = row.querySelector('.video-path').value;
+            |         const timeInput = row.querySelector('.time-input');
+            |         const timeMs = timeInput.value;
+            |         const mode = row.querySelector('.thumbnail-mode').value;
+            |         
+            |         if (mode === 'poster') {
+            |             const videoName = row.querySelector('.row-video').value;
+            |             const movieTitle = extractMovieTitle(videoName);
+            |             fetchMoviePoster(row, videoPath, movieTitle);
+            |         } else {
+            |             generateThumbnail(row, videoPath, timeMs);
+            |         }
+            |     } else if (clearBtn) {
+            |         const row = clearBtn.closest('tr');
+            |         const thumbnailPath = row.querySelector('.thumbnail-path').value;
+            |         clearThumbnail(row, thumbnailPath);
+            |     }
+            | });
+            | 
+            | function extractMovieTitle(videoName) {
+            |     /* Remove file extensions */
+            |     let title = videoName.replace(/\.(mp4|m4v|webm|mov|avi|mkv)$/i, '');
+            |     /* Remove year in parentheses or brackets */
+            |     title = title.replace(/[\(\[][12]\d{3}[\)\]]/g, '').trim();
+            |     /* Replace dots, underscores with spaces */
+            |     title = title.replace(/[._]/g, ' ').trim();
+            |     return title;
+            | }
+            | 
+            | function toggleTimeInput(selectElement) {
+            |     const row = selectElement.closest('tr');
+            |     const timeInputControl = row.querySelector('.time-input-control');
+            |     const mode = selectElement.value;
+            |     
+            |     if (mode === 'poster') {
+            |         timeInputControl.style.display = 'none';
+            |     } else {
+            |         timeInputControl.style.display = '';
+            |     }
+            | }
+            | 
+            | function populateGalleryFilter() {
+            |     const gallerySelect = document.getElementById('filterGallery');
+            |     const galleries = new Set();
+            |     const rows = document.querySelectorAll('#videoTable tbody tr');
+            |     rows.forEach(row => {
+            |         const galleryInput = row.querySelector('.row-gallery');
+            |         if (galleryInput) galleries.add(galleryInput.value);
+            |     });
+            |     galleries.forEach(gallery => {
+            |         const option = document.createElement('option');
+            |         option.value = gallery;
+            |         option.textContent = gallery;
+            |         gallerySelect.appendChild(option);
+            |     });
+            | }
+            | 
+            | function updateGalleryOptions() {
+            |     const category = document.getElementById('filterCategory').value;
+            |     const gallerySelect = document.getElementById('filterGallery');
+            |     const currentGallery = gallerySelect.value;
+            |     gallerySelect.innerHTML = '<option value="">All Galleries</option>';
+            |     
+            |     const galleries = new Set();
+            |     const rows = document.querySelectorAll('#videoTable tbody tr');
+            |     rows.forEach(row => {
+            |         const catInput = row.querySelector('.row-category');
+            |         const galInput = row.querySelector('.row-gallery');
+            |         if (galInput && (!category || (catInput && catInput.value === category))) {
+            |             galleries.add(galInput.value);
+            |         }
+            |     });
+            |     
+            |     galleries.forEach(gallery => {
+            |         const option = document.createElement('option');
+            |         option.value = gallery;
+            |         option.textContent = gallery;
+            |         gallerySelect.appendChild(option);
+            |     });
+            |     
+            |     if (currentGallery && Array.from(galleries).includes(currentGallery)) {
+            |         gallerySelect.value = currentGallery;
+            |     }
+            | }
+            | 
+            | function updateCategoryOptions() {
+            |     const gallery = document.getElementById('filterGallery').value;
+            |     const categorySelect = document.getElementById('filterCategory');
+            |     const currentCategory = categorySelect.value;
+            |     categorySelect.innerHTML = '<option value="">All Categories</option>';
+            |     
+            |     const categories = new Set();
+            |     const rows = document.querySelectorAll('#videoTable tbody tr');
+            |     rows.forEach(row => {
+            |         const catInput = row.querySelector('.row-category');
+            |         const galInput = row.querySelector('.row-gallery');
+            |         if (catInput && (!gallery || (galInput && galInput.value === gallery))) {
+            |             categories.add(catInput.value);
+            |         }
+            |     });
+            |     
+            |     categories.forEach(category => {
+            |         const option = document.createElement('option');
+            |         option.value = category;
+            |         option.textContent = category;
+            |         categorySelect.appendChild(option);
+            |     });
+            |     
+            |     if (currentCategory && Array.from(categories).includes(currentCategory)) {
+            |         categorySelect.value = currentCategory;
+            |     }
+            | }
+            | 
+
+            | 
+            | function applyFilters() {
+            |     const category = document.getElementById('filterCategory').value;
+            |     const gallery = document.getElementById('filterGallery').value;
+            |     const status = document.getElementById('filterStatus').value;
+            |     const search = document.getElementById('filterSearch').value.toLowerCase();
+            |     
+            |     const rows = document.querySelectorAll('#videoTable tbody tr');
+            |     rows.forEach(row => {
+            |         let show = true;
+            |         const thumbnail = row.querySelector('img');
+            |         const hasThumbnail = thumbnail !== null;
+            |         
+            |         const videoInput = row.querySelector('.row-video');
+            |         const galleryInput = row.querySelector('.row-gallery');
+            |         const categoryInput = row.querySelector('.row-category');
+            |         
+            |         const videoName = videoInput ? videoInput.value.toLowerCase() : '';
+            |         const galleryName = galleryInput ? galleryInput.value : '';
+            |         const categoryName = categoryInput ? categoryInput.value : '';
+            |         
+            |         if (category && categoryName !== category) show = false;
+            |         if (gallery && galleryName !== gallery) show = false;
+            |         if (status === 'has' && !hasThumbnail) show = false;
+            |         if (status === 'missing' && hasThumbnail) show = false;
+            |         if (search && !videoName.includes(search)) show = false;
+            |         
+            |         row.style.display = show ? '' : 'none';
+            |     });
+            |     saveFilterState();
+            | }
+            | 
+            | function toggleSelectAll() {
+            |     const selectAll = document.getElementById('selectAll');
+            |     const checkboxes = document.querySelectorAll('.video-checkbox');
+            |     checkboxes.forEach(cb => {
+            |         const row = cb.closest('tr');
+            |         if (row.style.display !== 'none') {
+            |             cb.checked = selectAll.checked;
+            |         }
+            |     });
+            |     updateSelectedCount();
+            | }
+            | 
+            | function updateSelectedCount() {
+            |     const checked = document.querySelectorAll('.video-checkbox:checked');
+            |     const count = checked.length;
+            |     document.getElementById('selectedCount').textContent = count + ' selected';
+            |     document.getElementById('btnGenerate').disabled = count === 0;
+            |     document.getElementById('btnClear').disabled = count === 0;
+            | }
+            | 
+            | async function generateSelectedThumbnails() {
+            |     const timeMs = document.getElementById('bulkTimeMs').value;
+            |     const parallelOps = parseInt(document.getElementById('parallelOps').value) || 3;
+            |     const checked = Array.from(document.querySelectorAll('.video-checkbox:checked'));
+            |     
+            |     if (checked.length === 0) return;
+            |     
+            |     if (!confirm('Generate thumbnails for ' + checked.length + ' video(s)?')) return;
+            |     
+            |     let completed = 0;
+            |     const total = checked.length;
+            |     
+            |     /* Mark all selected rows as queued */
+            |     checked.forEach(cb => {
+            |         const row = cb.closest('tr');
+            |         row.classList.add('is-queued');
+            |     });
+            |     
+            |     /* Process in batches with limited parallelism */
+            |     for (let i = 0; i < checked.length; i += parallelOps) {
+            |         const batch = checked.slice(i, i + parallelOps);
+            |         await Promise.all(batch.map(cb => {
+            |             return new Promise((resolve) => {
+            |                 try {
+            |                     const row = cb.closest('tr');
+            |                     row.classList.remove('is-queued');
+            |                     row.classList.add('is-processing');
+            |                     const videoPath = row.querySelector('.video-path').value;
+            |                     generateThumbnail(row, videoPath, timeMs, function() {
+            |                         row.classList.remove('is-processing');
+            |                         completed++;
+            |                         if (completed === total) {
+            |                             setTimeout(function() { location.reload(); }, 2000);
+            |                         }
+            |                         resolve();
+            |                     });
+            |                 } catch (error) {
+            |                     console.error('Error processing thumbnail:', error);
+            |                     row.classList.remove('is-processing');
+            |                     resolve();
+            |                 }
+            |             });
+            |         }));
+            |     }
+            | }
+            | 
+            | async function clearSelectedThumbnails() {
+            |     const parallelOps = parseInt(document.getElementById('parallelOps').value) || 3;
+            |     const checked = Array.from(document.querySelectorAll('.video-checkbox:checked'));
+            |     
+            |     if (checked.length === 0) return;
+            |     
+            |     if (!confirm('Clear thumbnails for ' + checked.length + ' video(s)? This cannot be undone.')) return;
+            |     
+            |     let completed = 0;
+            |     const total = checked.length;
+            |     
+            |     /* Mark all selected rows as queued */
+            |     checked.forEach(cb => {
+            |         const row = cb.closest('tr');
+            |         row.classList.add('is-queued');
+            |     });
+            |     
+            |     /* Process in batches with limited parallelism */
+            |     for (let i = 0; i < checked.length; i += parallelOps) {
+            |         const batch = checked.slice(i, i + parallelOps);
+            |         await Promise.all(batch.map(cb => {
+            |             return new Promise((resolve) => {
+            |                 try {
+            |                     const row = cb.closest('tr');
+            |                     row.classList.remove('is-queued');
+            |                     row.classList.add('is-processing');
+            |                     const thumbnailPath = row.querySelector('.thumbnail-path').value;
+            |                     if (thumbnailPath) {
+            |                         clearThumbnail(row, thumbnailPath, function() {
+            |                             row.classList.remove('is-processing');
+            |                             completed++;
+            |                             if (completed === total) {
+            |                                 setTimeout(function() { location.reload(); }, 2000);
+            |                             }
+            |                             resolve();
+            |                         });
+            |                     } else {
+            |                         row.classList.remove('is-processing');
+            |                         resolve();
+            |                     }
+            |                 } catch (error) {
+            |                     console.error('Error clearing thumbnail:', error);
+            |                     row.classList.remove('is-processing');
+            |                     resolve();
+            |                 }
+            |             });
+            |         }));
+            |     }
+            | }
+            | 
+            | function generateThumbnail(row, videoPath, timeMs, callback) {
+            |     const statusDiv = row.querySelector('.status-msg');
+            |     statusDiv.classList.remove('is-hidden', 'is-success', 'is-danger');
+            |     statusDiv.classList.add('is-info');
+            |     statusDiv.innerHTML = '<progress class="progress is-small is-info" value="0" max="100">0%</progress><span>Initializing...</span>';
+            |     
+            |     const eventSource = new EventSource('/' + secretKey + '/admin/api/generate-thumbnail?videoPath=' + encodeURIComponent(videoPath) + '&timeMs=' + timeMs);
+            |     
+            |     eventSource.onmessage = function(event) {
+            |         const data = JSON.parse(event.data);
+            |         
+            |         if (data.error) {
+            |             eventSource.close();
+            |             statusDiv.classList.remove('is-info', 'is-success');
+            |             statusDiv.classList.add('is-danger');
+            |             statusDiv.innerHTML = 'Error: ' + data.error;
+            |             if (callback) callback();
+            |             return;
+            |         }
+            |         
+            |         if (data.progress === 100) {
+            |             eventSource.close();
+            |             statusDiv.classList.remove('is-info', 'is-danger');
+            |             statusDiv.classList.add('is-success');
+            |             statusDiv.innerHTML = 'Thumbnail generated successfully!';
+            |             if (callback) {
+            |                 callback();
+            |             } else {
+            |                 setTimeout(function() { location.reload(); }, 2000);
+            |             }
+            |             return;
+            |         }
+            |         
+            |         statusDiv.innerHTML = '<progress class="progress is-small is-info" value="' + data.progress + '" max="100">' + data.progress + '%</progress><span>' + data.step + '...</span>';
+            |     };
+            |     
+            |     eventSource.onerror = function(error) {
+            |         eventSource.close();
+            |         statusDiv.classList.remove('is-info', 'is-success');
+            |         statusDiv.classList.add('is-danger');
+            |         statusDiv.innerHTML = 'Error: Connection failed';
+            |         if (callback) callback();
+            |     };
+            | }
+            | 
+            | function clearThumbnail(row, thumbnailPath, callback) {
+            |     const statusDiv = row.querySelector('.status-msg');
+            |     statusDiv.classList.remove('is-hidden', 'is-success', 'is-danger');
+            |     statusDiv.classList.add('is-info');
+            |     statusDiv.textContent = 'Clearing thumbnail...';
+            |     
+            |     fetch('/' + secretKey + '/admin/api/clear-thumbnail', {
+            |         method: 'POST',
+            |         headers: {'Content-Type': 'application/json'},
+            |         body: JSON.stringify({thumbnailPath: thumbnailPath})
+            |     })
+            |     .then(function(response) { return response.json(); })
+            |     .then(function(data) {
+            |         statusDiv.classList.remove('is-info', 'is-danger');
+            |         statusDiv.classList.add('is-success');
+            |         statusDiv.textContent = data.message || 'Thumbnail cleared successfully!';
+            |         if (callback) {
+            |             callback();
+            |         } else {
+            |             setTimeout(function() { location.reload(); }, 2000);
+            |         }
+            |     })
+            |     .catch(function(error) {
+            |         statusDiv.classList.remove('is-info', 'is-success');
+            |         statusDiv.classList.add('is-danger');
+            |         statusDiv.textContent = 'Error: ' + error.message;
+            |         if (callback) callback();
+            |     });
+            | }
+            | 
+            | function fetchMoviePoster(row, videoPath, movieTitle) {
+            |     const statusDiv = row.querySelector('.status-msg');
+            |     statusDiv.classList.remove('is-hidden', 'is-success', 'is-danger');
+            |     statusDiv.classList.add('is-info');
+            |     statusDiv.innerHTML = '<span>Searching for movie...</span>';
+            |     
+            |     /* First, search for the movie and show results */
+            |     fetch('/' + secretKey + '/admin/api/search-movie-poster?movieTitle=' + encodeURIComponent(movieTitle))
+            |         .then(function(response) { return response.json(); })
+            |         .then(function(results) {
+            |             if (!results || results.length === 0) {
+            |                 statusDiv.classList.remove('is-info', 'is-success');
+            |                 statusDiv.classList.add('is-danger');
+            |                 statusDiv.innerHTML = 'No movies found for: ' + movieTitle;
+            |                 return;
+            |             }
+            |             
+            |             /* Show poster selection UI */
+            |             statusDiv.classList.remove('is-danger');
+            |             statusDiv.classList.add('is-info');
+            |             
+            |             let html = '<div class="poster-selection"><p class="mb-3"><strong>Select the correct movie:</strong></p><div class="columns is-multiline is-mobile is-variable is-2">';
+            |             
+            |             results.slice(0, 5).forEach(function(movie, index) {
+            |                 html += '<div class="column is-one-quarter-desktop is-one-third-tablet is-half-mobile">';
+            |                 html += '<div class="card poster-card" data-video-path="' + videoPath + '" data-movie-title="' + movie.title.replace(/"/g, '&quot;') + '">';
+            |                 html += '<div class="card-image"><figure class="image is-2by3">';
+            |                 html += '<img src="' + movie.thumbnailUrl + '" alt="' + movie.title + '">';
+            |                 html += '</figure></div>';
+            |                 html += '<div class="card-content p-2"><p class="is-size-7 has-text-centered has-text-weight-semibold">' + movie.title;
+            |                 if (movie.year) html += '<br><span class="has-text-grey">(' + movie.year + ')</span>';
+            |                 html += '</p></div></div></div>';
+            |             });
+            |             
+            |             html += '</div><button class="button is-small is-light mt-2 cancel-poster-btn">Cancel</button></div>';
+            |             
+            |             statusDiv.innerHTML = html;
+            |             
+            |             /* Add click handlers to poster cards */
+            |             statusDiv.querySelectorAll('.poster-card').forEach(function(card) {
+            |                 card.addEventListener('click', function() {
+            |                     const videoPath = this.dataset.videoPath;
+            |                     const movieTitle = this.dataset.movieTitle;
+            |                     confirmPosterSelection(row, videoPath, movieTitle);
+            |                 });
+            |             });
+            |             
+            |             /* Add cancel button handler */
+            |             statusDiv.querySelector('.cancel-poster-btn').addEventListener('click', function() {
+            |                 cancelPosterSelection(statusDiv);
+            |             });
+            |             
+            |             /* Store results in the row for later use */
+            |             row.dataset.posterResults = JSON.stringify(results);
+            |         })
+            |         .catch(function(error) {
+            |             statusDiv.classList.remove('is-info', 'is-success');
+            |             statusDiv.classList.add('is-danger');
+            |             statusDiv.innerHTML = 'Error: ' + error.message;
+            |         });
+            | }
+            | 
+            | function confirmPosterSelection(row, videoPath, movieTitle) {
+            |     const statusDiv = row.querySelector('.status-msg');
+            |     
+            |     statusDiv.classList.remove('is-danger');
+            |     statusDiv.classList.add('is-info');
+            |     statusDiv.innerHTML = '<progress class="progress is-small is-info" value="0" max="100">0%</progress><span>Fetching poster...</span>';
+            |     
+            |     const eventSource = new EventSource('/' + secretKey + '/admin/api/fetch-movie-poster?videoPath=' + encodeURIComponent(videoPath) + '&movieTitle=' + encodeURIComponent(movieTitle));
+            |     
+            |     eventSource.onmessage = function(event) {
+            |         const data = JSON.parse(event.data);
+            |         
+            |         if (data.error) {
+            |             eventSource.close();
+            |             statusDiv.classList.remove('is-info', 'is-success');
+            |             statusDiv.classList.add('is-danger');
+            |             statusDiv.innerHTML = 'Error: ' + data.error;
+            |             return;
+            |         }
+            |         
+            |         if (data.progress === 100) {
+            |             eventSource.close();
+            |             statusDiv.classList.remove('is-info', 'is-danger');
+            |             statusDiv.classList.add('is-success');
+            |             statusDiv.innerHTML = 'Movie poster fetched successfully!';
+            |             setTimeout(function() { location.reload(); }, 2000);
+            |             return;
+            |         }
+            |         
+            |         statusDiv.innerHTML = '<progress class="progress is-small is-info" value="' + data.progress + '" max="100">' + data.progress + '%</progress><span>' + data.step + '...</span>';
+            |     };
+            |     
+            |     eventSource.onerror = function(error) {
+            |         eventSource.close();
+            |         statusDiv.classList.remove('is-info', 'is-success');
+            |         statusDiv.classList.add('is-danger');
+            |         statusDiv.innerHTML = 'Error: Connection failed';
+            |     };
+            | }
+            | 
+            | function cancelPosterSelection(statusDiv) {
+            |     statusDiv.classList.add('is-hidden');
+            |     statusDiv.innerHTML = '';
+            | }

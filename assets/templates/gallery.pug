@@ -1,0 +1,27 @@
+doctype html
+html
+    head
+        meta(name="viewport", content="width=device-width,initial-scale=1.0")
+        title #{Name}
+        style 
+            include ../../public/styles.css
+    body
+        div.header.hero.is-dark.is-small
+            div.hero-head
+                div.container.has-text-centered-mobile.block
+                    h1.title.is-2 #{Name}
+                    h2.subtitle.is-3 #{Category}
+        div.container
+            div.videos
+                div.columns.is-multiline.is-flex-direction-row
+                    each Video,_ in Videos
+                        div.column.is-4
+                            div.video.has-text-centered.has-border
+                                div.block
+                                    if Video.Thumbnail
+                                        a(href=Video.Url)
+                                            img(src=Video.Thumbnail).image.m-auto
+                                    else
+                                        a.button.is-medium.is-link(href=Video.Url) Play
+                                div.caption
+                                    div.subtitle.is-5 #{Video.Name}

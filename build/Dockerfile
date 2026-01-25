@@ -1,31 +1,48 @@
-# Multi-stage Dockerfile for Video Gallery application (Rust)
+# Multi-stage Dockerfile for Video Gallery application
 # This builds a containerized video streaming and gallery application
-# with a Rust backend and compiled frontend assets.
+# with a Go backend and compiled frontend assets.
+
+# Frontend build stage
+FROM node:24-alpine AS frontend-builder
+
+WORKDIR /frontend
+
+# Copy package files first for better caching
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+# Copy source files needed for build
+COPY assets/scss ./assets/scss
+
+# Build frontend (compile SCSS to CSS)
+RUN npm run build
 
 # Backend build stage
-FROM rust:1.83-alpine AS builder
+FROM golang:1.25-alpine3.22 AS builder
 
-# Install build dependencies
-RUN apk add --no-cache musl-dev pkgconfig openssl-dev
+# Install CA certificates for downloading Go modules
+RUN apk add --no-cache ca-certificates
 
 WORKDIR /build
 
-# Copy manifests first for better caching
-COPY Cargo.toml ./
+# Copy go module files first for better caching
+COPY go.mod go.sum ./
+RUN go mod download
 
-# Create a dummy src/main.rs to cache dependencies
-RUN mkdir -p src && \
-    echo "fn main() {}" > src/main.rs && \
-    cargo build --release && \
-    rm -rf src
+# Copy the source code
+COPY . .
 
-# Copy the actual source code
-COPY src ./src
+# Copy built frontend assets from frontend-builder
+COPY --from=frontend-builder /frontend/public ./public
 
-# Build the application
+# Build argument for version
 ARG VERSION=dev
-RUN touch src/main.rs && \
-    cargo build --release
+
+# Build the application with version injection and optimization flags
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags="-s -w -X video-gallery/cmd.Version=${VERSION}" \
+    -trimpath \
+    -o video-gallery
 
 # Final stage
 FROM alpine:3.22
@@ -49,12 +66,11 @@ RUN addgroup -g 1000 appuser && \
 WORKDIR /app
 
 # Copy built binary from builder stage with executable permissions
-COPY --from=builder --chmod=755 /build/target/release/video-gallery /app/video-gallery
+COPY --from=builder --chmod=755 /build/video-gallery /app/video-gallery
 
 # Copy required application files with appropriate permissions
-# Note: public/styles.css should be built locally with `npm run build` before building the Docker image
-COPY assets /app/assets
-COPY public /app/public
+COPY --from=builder /build/assets /app/assets
+COPY --from=builder /build/public /app/public
 
 # Change ownership to non-root user
 RUN chown -R appuser:appuser /app
@@ -66,4 +82,4 @@ USER appuser
 EXPOSE 8080
 
 # Run the application
-CMD ["/app/video-gallery"]
+CMD ["/app/video-gallery", "serve"]

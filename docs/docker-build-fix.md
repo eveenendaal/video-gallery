@@ -1,147 +1,121 @@
-# Docker Build Fix Documentation
+# Docker Build Documentation
 
-## Problem Summary
+## Current Build Process
 
-The GitHub Actions workflow in `.github/workflows/deploy.yml` was experiencing "manifest unknown" errors when building and publishing Docker images to GitHub Container Registry (GHCR).
+The application uses a multi-stage Dockerfile optimized for Rust:
 
-## Root Causes Identified
+### Build Stages
+1. **Backend Builder**: Compiles Rust application using Alpine Linux
+2. **Final Stage**: Minimal Alpine image with runtime dependencies only
 
-### 1. Missing CA Certificates in Builder Stage
-**Issue**: Alpine Linux base images don't include CA certificates by default
-- This prevented Go from downloading modules securely via HTTPS
-- Would cause TLS certificate verification failures
-
-**Fix**: Added `RUN apk add --no-cache ca-certificates` in the builder stage before `go mod download`
-
-### 2. Docker Build Configuration
-**Change**: Frontend build is now handled entirely within the Docker multi-stage build
-- Frontend assets are built in a separate Node.js stage within the Dockerfile
-- No need for workflow to pre-build frontend assets
-- Docker Buildx has been removed for simpler build process
-- Multi-platform builds (amd64/arm64) removed for compatibility
-
-## Changes Made
-
-### Dockerfile Changes (`build/Dockerfile`)
-
-```dockerfile
-# Before - Missing CA certificates
-FROM golang:1.25-alpine3.22 AS builder
-WORKDIR /build
-
-# After - Added CA certificates for secure module downloads
-FROM golang:1.25-alpine3.22 AS builder
-RUN apk add --no-cache ca-certificates
-WORKDIR /build
+### Prerequisites
+Frontend assets must be built **before** running Docker build:
+```bash
+npm install
+npm run build  # Builds SCSS to CSS
 ```
 
-Frontend build is now handled in the Dockerfile:
-```dockerfile
-# Frontend build stage
-FROM node:24-alpine AS frontend-builder
-WORKDIR /frontend
-COPY package*.json ./
-RUN npm ci --omit=dev
-COPY assets/scss ./assets/scss
-RUN npm run build
+This is required because npm/node has compatibility issues in Alpine containers during the Docker build.
 
-# Backend build stage
-FROM golang:1.25-alpine3.22 AS builder
-# ...
-COPY --from=frontend-builder /frontend/public ./public
-```
-
-## How the Build Process Works Now
-
-### 1. Docker Multi-Stage Build
-The Dockerfile handles both frontend and backend builds:
-- **Frontend stage**: Builds SCSS to CSS using Node.js
-- **Backend stage**: Builds Go application and copies frontend assets from the frontend stage
-
-### 2. GitHub Actions Workflow (deploy.yml)
-The workflow is simplified:
-- No Docker Buildx setup
-- No Node.js setup or frontend build
-- Docker build handles everything internally
-
-### 3. Single Platform Build
-The build now targets a single platform (the runner's native platform):
-- Docker Buildx has been removed
-- Simpler build process without multi-platform complexity
-
-## Why "Manifest Unknown" Errors Occur
-
-"Manifest unknown" errors typically happen when:
-
-1. **Image doesn't exist**: The tag you're trying to pull hasn't been pushed successfully
-2. **Wrong image name**: The image name format is incorrect (should be `ghcr.io/owner/repo:tag`)
-3. **Authentication issues**: Not logged in or insufficient permissions
-4. **Build failures**: The build failed but the push step tried to run anyway
-5. **Tag mismatch**: Pushing one tag but trying to pull a different tag
-6. **Multi-arch issues**: Expecting a manifest list but only single-platform images were pushed
-
-## Validation Checklist
-
-After these changes, the build should succeed if:
-
-- ✅ Go version in Dockerfile matches go.mod
-- ✅ Frontend assets are built within Docker multi-stage build
-- ✅ CA certificates are installed for secure module downloads
-- ✅ Authentication to GHCR is configured with proper permissions
-- ✅ Image naming follows the pattern: `ghcr.io/${{ github.repository_owner }}/repo-name:tag`
-
-## Testing Locally
-
-To test the Docker build locally:
+### Building the Docker Image
 
 ```bash
-# 1. Build Docker image (handles frontend build internally)
-docker build -f build/Dockerfile -t video-gallery:test --build-arg VERSION=test .
+# 1. Build frontend assets first
+npm install && npm run build
 
-# 2. Run the container
+# 2. Build Docker image
+docker build -t video-gallery:latest .
+
+# 3. Run the container
 docker run -p 8080:8080 \
-  -e BUCKET_NAME=your-bucket \
-  -e SECRET_KEY=your-secret \
-  video-gallery:test
+  -e SECRET_KEY=your-secret-key \
+  -e BUCKET_NAME=your-bucket-name \
+  -e GOOGLE_APPLICATION_CREDENTIALS=/app/creds.json \
+  -e TMDB_API_KEY=your-tmdb-key \
+  -v /path/to/creds.json:/app/creds.json:ro \
+  video-gallery:latest
 ```
 
-## Expected Behavior
+## Runtime Requirements
 
-After these fixes:
+### Required Environment Variables
+- `SECRET_KEY` - Unique string for URL path protection
+- `BUCKET_NAME` - GCS bucket containing video files
+- `GOOGLE_APPLICATION_CREDENTIALS` - Path to service account JSON key file
 
-1. The GitHub Actions workflow will build successfully
-2. Docker images will be pushed to `ghcr.io/eveenendaal/video-gallery` with multiple tags:
-   - `latest`
-   - Version number (e.g., `1.2.3`)
-   - Major.minor version (e.g., `1.2`)
-   - Major version (e.g., `1`)
-   - Branch name (e.g., `master`)
-3. Images will be built for the runner's native platform (typically linux/amd64)
-4. The manifest will be available immediately after push
-5. Users can pull the image: `docker pull ghcr.io/eveenendaal/video-gallery:latest`
+### Optional Environment Variables
+- `PORT` - Server port (default: 8080)
+- `TMDB_API_KEY` - TMDb API key for movie poster feature
 
-## Additional Notes
+### Runtime Dependencies
+The final container includes:
+- **CA Certificates**: For HTTPS requests to GCS and TMDb
+- **FFmpeg**: For thumbnail generation from video frames
 
-### GitHub Container Registry Authentication
-The workflow uses `GITHUB_TOKEN` for authentication, which automatically has the required `packages: write` permission specified in the workflow.
+### Service Account Permissions
+The GCS service account needs:
+- `storage.objects.list` - List bucket contents
+- `storage.objects.get` - Read object metadata (for signed URLs)
+- `storage.objects.create` - Upload thumbnails
+- `storage.objects.delete` - Clear thumbnails
 
-### Build Configuration
-The build uses a standard Docker build without Buildx for simplicity and compatibility. Multi-stage builds are used to optimize the final image size by separating frontend and backend build stages.
+## Optimization Features
+
+### Binary Size Optimization
+The Cargo.toml includes aggressive optimization settings:
+```toml
+[profile.release]
+strip = true          # Remove debug symbols
+lto = true           # Link-time optimization
+codegen-units = 1    # Better optimization at slower compile time
+opt-level = "z"      # Optimize for size
+```
+
+Result: ~9.8 MB release binary
+
+### Multi-stage Build Benefits
+- **Builder stage**: Includes compilation tools and dependencies
+- **Final stage**: Only runtime dependencies and binary
+- **Size reduction**: From ~1GB builder image to ~30MB final image
+
+## Testing the Docker Image Locally
+
+```bash
+# Build the image
+npm run build && docker build -t video-gallery:test .
+
+# Run with test configuration
+docker run -p 8080:8080 \
+  -e SECRET_KEY=test-key \
+  -e BUCKET_NAME=your-test-bucket \
+  -e GOOGLE_APPLICATION_CREDENTIALS=/app/creds.json \
+  -v ./creds.json:/app/creds.json:ro \
+  video-gallery:test
+
+# Verify endpoints
+curl http://localhost:8080/test-key/index
+curl http://localhost:8080/test-key/feed
+curl http://localhost:8080/test-key/admin
+```
+
+## Cloud Run Deployment
+
+The container is designed to run on Google Cloud Run:
+
+1. **Service Account**: Attach a service account with bucket access permissions
+2. **Environment Variables**: Set via Cloud Run console or gcloud CLI
+3. **Credentials**: When running on Cloud Run with proper service account, you may not need `GOOGLE_APPLICATION_CREDENTIALS` as it will use the attached service account automatically
 
 ## Troubleshooting
 
-If you still encounter "manifest unknown" errors after these changes:
+### "public/styles.css not found"
+**Solution**: Build frontend assets before Docker build:
+```bash
+npm install && npm run build
+```
 
-1. **Check build logs**: Verify the build step completed successfully
-2. **Verify push**: Look for "pushing manifest" messages in the logs
-3. **Check permissions**: Ensure `packages: write` permission is set
-4. **Verify authentication**: Check that `docker/login-action` succeeded
-5. **Check image name**: Ensure it matches `ghcr.io/${{ github.repository }}`
-6. **Wait briefly**: Sometimes there's a short delay in manifest propagation (seconds)
+### "Failed to load configuration: BUCKET_NAME environment variable not set"
+**Solution**: Ensure all required environment variables are set when running the container
 
-## References
-
-- [GitHub Container Registry Documentation](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
-- [Docker Build Push Action](https://github.com/docker/build-push-action)
-- [Docker Multi-stage Builds](https://docs.docker.com/build/building/multi-stage/)
-- [Go Official Docker Images](https://hub.docker.com/_/golang)
+### "connection closed via error" during signed URL generation
+**Solution**: This can happen with too many concurrent requests. The application limits concurrency to 50 to prevent this, but extremely large buckets (1000+ objects) may still encounter occasional errors. The application will log errors but continue processing other files.

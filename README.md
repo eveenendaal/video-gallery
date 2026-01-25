@@ -2,6 +2,8 @@
 
 The goal of this project is to build a serverless ready application for displaying a users video content library using only a single storage bucket.
 
+**Technology Stack**: This application is built with Rust using the Axum web framework and Tera templating engine, providing high performance and memory safety.
+
 ## Overview
 
 Video Gallery is a web-based application that runs as a Docker container, providing an interface to browse and play videos organized in galleries. The application is designed to run on serverless platforms like Google Cloud Run, requiring only a single storage bucket for video files.
@@ -156,27 +158,28 @@ This tvOS application is compatible with this video feed
 
 ## Code Structure
 
-The project follows a standard Go application structure:
+The project follows a standard Rust application structure:
 
 ```
 .
 ├── api/              # API documentation and test requests
 ├── assets/           # Frontend assets
 │   ├── scss/        # SASS stylesheets
-│   └── templates/   # Pug templates
-├── build/           # Build and deployment files (Dockerfile, etc.)
-├── cmd/             # CLI command implementations
-├── config/          # Configuration files
+│   └── templates/   # Tera HTML templates
+├── build/           # Build and deployment files (legacy Dockerfile, etc.)
 ├── docs/            # Project documentation
-├── pkg/             # Go packages
-│   ├── config/      # Configuration management
+├── src/             # Rust source code
+│   ├── config.rs    # Configuration management
 │   ├── handlers/    # HTTP request handlers
-│   ├── models/      # Data models
-│   └── services/    # Business logic services
+│   ├── models.rs    # Data models
+│   ├── services/    # Business logic services
+│   └── main.rs      # Application entry point
 ├── public/          # Static web assets
 ├── schemas/         # JSON schemas
 ├── scripts/         # Build and automation scripts
-└── terraform/       # Infrastructure as code
+├── terraform/       # Infrastructure as code
+├── Cargo.toml       # Rust dependencies and project metadata
+└── Dockerfile       # Multi-stage Docker build
 ```
 
 ## Infrastructure
@@ -199,26 +202,103 @@ To deploy to Cloud Run:
 
 **SECRET_KEY** - A unique string. This is used to prefix all galleries with a random string to prevent people from guessing the gallery url.
 
+**GOOGLE_APPLICATION_CREDENTIALS** (Cloud Run only) - Path to service account JSON key file. Not needed when running with Application Default Credentials on Cloud Run with a properly configured service account.
+
 **TMDB_API_KEY** (Optional) - API key from The Movie Database (TMDb) for fetching movie posters. Required if you want to use the "Movie Poster" feature in the admin panel. Get a free API key at https://www.themoviedb.org/settings/api
+
+**Note on Authentication:** The application uses signed URLs to provide secure, time-limited access to videos and thumbnails stored in private GCS buckets. Videos and thumbnails are accessed via signed URLs valid for 7 days, automatically generated on-demand. The results are cached for 5 minutes to improve performance.
 
 #### Terraform
 
 You can find example terraform code in the [terraform](terraform) directory.
 
-### Running Locally
+## Development
 
-To run the application locally using Docker:
+### Prerequisites
+
+- Rust 1.83 or later
+- Node.js 24 or later (for building frontend assets)
+- FFmpeg (for thumbnail generation)
+- Google Cloud SDK (for GCS access)
+
+### Local Development Setup
+
+1. **Install Rust**: Follow instructions at [rustup.rs](https://rustup.rs/)
+
+2. **Install Node.js dependencies**:
+   ```bash
+   npm install
+   ```
+
+3. **Build frontend assets**:
+   ```bash
+   npm run build
+   ```
+
+4. **Build the Rust application**:
+   ```bash
+   cargo build --release
+   ```
+
+5. **Set up environment variables**:
+   ```bash
+   export SECRET_KEY=your-secret-key
+   export BUCKET_NAME=your-bucket-name
+   export GOOGLE_APPLICATION_CREDENTIALS=/path/to/creds.json  # Path to GCP service account credentials
+   export TMDB_API_KEY=your-tmdb-key  # Optional, for movie poster feature
+   export PORT=8080  # Optional, defaults to 8080
+   ```
+
+6. **Run the application**:
+   ```bash
+   cargo run --release
+   # Or directly run the binary
+   ./target/release/video-gallery
+   ```
+
+The application will be available at `http://localhost:8080`.
+
+### Building Docker Image
+
+To build the Docker image locally:
+
+1. **Build CSS assets first** (required before Docker build):
+   ```bash
+   npm install
+   npm run build
+   ```
+
+2. **Build the Docker image**:
+   ```bash
+   docker build -t video-gallery:latest .
+   ```
+
+3. **Run the container**:
+   ```bash
+   docker run -p 8080:8080 \
+     -e SECRET_KEY=your-secret-key \
+     -e BUCKET_NAME=your-bucket-name \
+     -e GOOGLE_APPLICATION_CREDENTIALS=/app/creds.json \
+     -e TMDB_API_KEY=your-tmdb-key \
+     -v /path/to/local/creds.json:/app/creds.json:ro \
+     video-gallery:latest
+   ```
+
+### Running Locally with Docker (Pre-built Image)
+
+To run the application locally using a pre-built Docker image:
 
 ```bash
 docker run -p 8080:8080 \
   -e SECRET_KEY=your-secret-key \
   -e BUCKET_NAME=your-bucket-name \
+  -e GOOGLE_APPLICATION_CREDENTIALS=/app/creds.json \
   -e TMDB_API_KEY=your-tmdb-key \
-  -v ~/.config/gcloud:/home/appuser/.config/gcloud:ro \
+  -v /path/to/local/creds.json:/app/creds.json:ro \
   ghcr.io/eveenendaal/video-gallery:latest
 ```
 
-You need to configure the environment variables listed above and set up default GCP credentials. Install the [Google Cloud SDK](https://cloud.google.com/sdk/) and run `gcloud auth login --update-adc`. Then mount the credentials directory into the container as shown above.
+The application requires a Google Cloud service account JSON key file for accessing the storage bucket. Mount this file into the container and set `GOOGLE_APPLICATION_CREDENTIALS` to point to the mounted location.
 
 ### Storage Bucket
 The application assumes the Storage Bucket is stored as follows:

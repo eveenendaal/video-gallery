@@ -24,17 +24,14 @@ yarn-error.log*
 *.sln
 *.sw?
 
-# Nuxt
-.nuxt
-
-# Ignoring
-out
-target
+# Runtime data
 thumbnails
 
-# Creds
+# Credentials
 creds.json
 
-# Bin
+# Rust build artifacts
 video-gallery
 *.exe
+/target/
+**/*.rs.bk

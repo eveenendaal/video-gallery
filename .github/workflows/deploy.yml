@@ -6,9 +6,10 @@ on:
       - 'master'
     paths:
       - 'assets/**'
-      - '**/*.go'
-      - '*'
-      - 'build/Dockerfile'
+      - 'src/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'Dockerfile'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
@@ -65,11 +66,21 @@ jobs:
             type=ref,event=branch
             type=raw,value=latest
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Build frontend assets
+        run: |
+          npm install
+          npm run build
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./build/Dockerfile
+          file: ./Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

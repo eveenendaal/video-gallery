@@ -2,21 +2,6 @@
 # This builds a containerized video streaming and gallery application
 # with a Rust backend and compiled frontend assets.
 
-# Frontend build stage
-FROM node:24-alpine AS frontend-builder
-
-WORKDIR /frontend
-
-# Copy package files first for better caching
-COPY package*.json ./
-RUN npm ci --omit=dev
-
-# Copy source files needed for build
-COPY assets/scss ./assets/scss
-
-# Build frontend (compile SCSS to CSS)
-RUN npm run build
-
 # Backend build stage
 FROM rust:1.83-alpine AS builder
 
@@ -67,8 +52,9 @@ WORKDIR /app
 COPY --from=builder --chmod=755 /build/target/release/video-gallery /app/video-gallery
 
 # Copy required application files with appropriate permissions
-COPY --from=builder /build/assets /app/assets
-COPY --from=frontend-builder /frontend/public /app/public
+# Note: public/styles.css should be built locally with `npm run build` before building the Docker image
+COPY assets /app/assets
+COPY public /app/public
 
 # Change ownership to non-root user
 RUN chown -R appuser:appuser /app

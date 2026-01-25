@@ -208,9 +208,84 @@ To deploy to Cloud Run:
 
 You can find example terraform code in the [terraform](terraform) directory.
 
-### Running Locally
+## Development
 
-To run the application locally using Docker:
+### Prerequisites
+
+- Rust 1.83 or later
+- Node.js 24 or later (for building frontend assets)
+- FFmpeg (for thumbnail generation)
+- Google Cloud SDK (for GCS access)
+
+### Local Development Setup
+
+1. **Install Rust**: Follow instructions at [rustup.rs](https://rustup.rs/)
+
+2. **Install Node.js dependencies**:
+   ```bash
+   npm install
+   ```
+
+3. **Build frontend assets**:
+   ```bash
+   npm run build
+   ```
+
+4. **Build the Rust application**:
+   ```bash
+   cargo build --release
+   ```
+
+5. **Set up environment variables**:
+   ```bash
+   export SECRET_KEY=your-secret-key
+   export BUCKET_NAME=your-bucket-name
+   export TMDB_API_KEY=your-tmdb-key  # Optional
+   export PORT=8080  # Optional, defaults to 8080
+   ```
+
+6. **Authenticate with Google Cloud**:
+   ```bash
+   gcloud auth login --update-adc
+   ```
+
+7. **Run the application**:
+   ```bash
+   cargo run --release -- serve
+   # Or directly run the binary
+   ./target/release/video-gallery serve
+   ```
+
+The application will be available at `http://localhost:8080`.
+
+### Building Docker Image
+
+To build the Docker image locally:
+
+1. **Build CSS assets first** (required before Docker build):
+   ```bash
+   npm install
+   npm run build
+   ```
+
+2. **Build the Docker image**:
+   ```bash
+   docker build -t video-gallery:latest .
+   ```
+
+3. **Run the container**:
+   ```bash
+   docker run -p 8080:8080 \
+     -e SECRET_KEY=your-secret-key \
+     -e BUCKET_NAME=your-bucket-name \
+     -e TMDB_API_KEY=your-tmdb-key \
+     -v ~/.config/gcloud:/home/appuser/.config/gcloud:ro \
+     video-gallery:latest
+   ```
+
+### Running Locally with Docker (Pre-built Image)
+
+To run the application locally using a pre-built Docker image:
 
 ```bash
 docker run -p 8080:8080 \

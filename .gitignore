@@ -38,3 +38,13 @@ creds.json
 # Bin
 video-gallery
 *.exe
+
+# Rust build artifacts
+Cargo.lock
+/target/
+**/*.rs.bk
+
+
+# Added by cargo
+
+/target

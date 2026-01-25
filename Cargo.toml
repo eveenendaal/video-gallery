@@ -1,0 +1,58 @@
+[package]
+name = "video-gallery"
+version = "2.0.0"
+edition = "2021"
+authors = ["Eric Veenendaal <eric@ericveenendaal.com>"]
+license = "GPL-3.0"
+description = "Video gallery and streaming application"
+
+[dependencies]
+# Web framework
+axum = { version = "0.7", features = ["multipart"] }
+tokio = { version = "1", features = ["full"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["fs", "trace"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Templating
+tera = "1.20"
+
+# CLI
+clap = { version = "4.5", features = ["derive"] }
+
+# Google Cloud Storage
+cloud-storage = "0.11"
+
+# HTTP client for TMDb API
+reqwest = { version = "0.12", features = ["json"] }
+urlencoding = "2.1"
+
+# Caching
+moka = { version = "0.12", features = ["future"] }
+
+# Hashing
+sha2 = "0.10"
+base64 = "0.22"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Error handling
+anyhow = "1.0"
+thiserror = "2.0"
+
+# Async utilities
+futures = "0.3"
+
+# Regex
+regex = "1.11"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+opt-level = "z"

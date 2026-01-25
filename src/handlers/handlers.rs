@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::models::{Gallery, Index};
+use crate::models::Gallery;
 use crate::services::GalleryService;
 use axum::{
     extract::{Path, State},

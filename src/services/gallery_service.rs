@@ -148,26 +148,15 @@ impl GalleryService {
                 let gallery = parts[1];
                 let filename = parts[2];
 
-                // Create a signed URL using the read method (24-hour expiration is default)
-                let signed_url = client
-                    .object()
-                    .read(&self.config.bucket_name, &object.name)
-                    .await
-                    .map(|_| {
-                        // Generate public URL (adjust this based on your bucket configuration)
-                        format!(
-                            "https://storage.googleapis.com/{}/{}",
-                            self.config.bucket_name, object.name
-                        )
-                    })
-                    .unwrap_or_else(|e| {
-                        error!("Error creating URL for {}: {}", object.name, e);
-                        String::new()
-                    });
-
-                if signed_url.is_empty() {
-                    continue;
-                }
+                // Generate public URL for the object
+                // Note: This assumes the bucket has public read access configured.
+                // For private buckets, you would need to implement signed URL generation
+                // using the GCS API or service account credentials.
+                let public_url = format!(
+                    "https://storage.googleapis.com/{}/{}",
+                    self.config.bucket_name,
+                    object.name
+                );
 
                 // Remove extension from filename
                 let file_base = extension_regex.replace(filename, "").to_string();
@@ -192,13 +181,13 @@ impl GalleryService {
 
                 // Check if file is a video
                 if VIDEO_EXTENSIONS.iter().any(|ext| filename.ends_with(ext)) {
-                    video.url = signed_url.clone();
+                    video.url = public_url.clone();
                     video.video_path = object.name.clone();
                 }
 
                 // Check if file is a thumbnail
                 if IMAGE_EXTENSIONS.iter().any(|ext| filename.ends_with(ext)) {
-                    video.thumbnail = Some(signed_url);
+                    video.thumbnail = Some(public_url);
                     video.thumbnail_path = object.name.clone();
                 }
             }

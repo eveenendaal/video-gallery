@@ -2,6 +2,7 @@ mod config;
 mod handlers;
 mod models;
 mod services;
+mod utils;
 
 use crate::config::Config;
 use crate::handlers::admin_handlers::*;
@@ -55,7 +56,7 @@ async fn main() {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "video_gallery=info,tower_http=info".into()),
+                .unwrap_or_else(|_| format!("{}=info,tower_http=info", env!("CARGO_PKG_NAME").replace("-", "_")).into()),
         )
         .with(tracing_subscriber::fmt::layer())
         .init();

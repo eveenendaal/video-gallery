@@ -1,7 +1,8 @@
 use crate::config::Config;
+use crate::utils::{get_safe_filename, get_thumbnail_path};
 use anyhow::{anyhow, Result};
 use cloud_storage::Client;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
@@ -48,7 +49,7 @@ impl ThumbnailService {
         let client = Client::default();
 
         // Generate thumbnail path
-        let thumbnail_path = Self::get_thumbnail_path(video_path);
+        let thumbnail_path = get_thumbnail_path(video_path);
 
         // Generate safe filenames
         let video_basename = get_safe_filename(video_path);
@@ -131,13 +132,6 @@ impl ThumbnailService {
         cleared
     }
 
-    fn get_thumbnail_path(video_path: &str) -> String {
-        let path = Path::new(video_path);
-        let stem = path.file_stem().unwrap_or_default();
-        let parent = path.parent().unwrap_or_else(|| Path::new(""));
-        parent.join(stem).with_extension("jpg").to_string_lossy().to_string()
-    }
-
     async fn download_file(&self, client: &Client, object_path: &str, dest_path: &Path) -> Result<()> {
         let data = client
             .object()
@@ -211,17 +205,13 @@ async fn create_thumbnail_with_ffmpeg(
     Ok(())
 }
 
-fn get_safe_filename(path: &str) -> String {
-    path.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_")
-}
-
 // RAII guard for file cleanup
 struct FileGuard {
-    path: PathBuf,
+    path: std::path::PathBuf,
 }
 
 impl FileGuard {
-    fn new(path: PathBuf) -> Self {
+    fn new(path: std::path::PathBuf) -> Self {
         Self { path }
     }
 }

@@ -1,15 +1,14 @@
 use crate::config::Config;
 use crate::models::MoviePosterResult;
 use crate::services::thumbnail_service::ProgressCallback;
+use crate::utils::get_thumbnail_path;
 use anyhow::{anyhow, Result};
 use cloud_storage::Client;
 use regex::Regex;
 use serde::Deserialize;
 use std::path::Path;
 use std::sync::Arc;
-use tokio::fs;
-use tokio::io::AsyncWriteExt;
-use tracing::{debug, error, info};
+use tracing::info;
 
 #[derive(Debug, Deserialize)]
 struct TMDbSearchResponse {
@@ -134,7 +133,7 @@ impl PosterService {
         send_progress("Uploading poster to storage".to_string(), 70);
 
         // Generate thumbnail path
-        let thumbnail_path = Self::get_thumbnail_path(video_path);
+        let thumbnail_path = get_thumbnail_path(video_path);
 
         let storage_client = Client::default();
         
@@ -160,13 +159,6 @@ impl PosterService {
         info!("Successfully fetched poster for {}", title);
 
         Ok(())
-    }
-
-    fn get_thumbnail_path(video_path: &str) -> String {
-        let path = Path::new(video_path);
-        let stem = path.file_stem().unwrap_or_default();
-        let parent = path.parent().unwrap_or_else(|| Path::new(""));
-        parent.join(stem).with_extension("jpg").to_string_lossy().to_string()
     }
 }
 

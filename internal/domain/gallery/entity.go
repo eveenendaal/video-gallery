@@ -1,6 +1,6 @@
-package models
+package gallery
 
-// Category represents a category of galleries
+// Category represents a collection of galleries
 type Category struct {
 	Name      string    `json:"name"`
 	Stub      string    `json:"stub"`
@@ -26,13 +26,7 @@ type Video struct {
 	ThumbnailPath string  `json:"-"` // Storage path for the thumbnail file
 }
 
-// Index represents the main index page data
-type Index struct {
-	Categories []Category
-}
-
-// Admin represents the admin page data
-type Admin struct {
-	Categories []Category
-	SecretKey  string
+// StorageObject represents a file stored in cloud storage
+type StorageObject struct {
+	Name string
 }

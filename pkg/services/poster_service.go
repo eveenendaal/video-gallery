@@ -30,58 +30,68 @@ type TMDbSearchResult struct {
 	} `json:"results"`
 }
 
-// FetchMoviePoster searches for a movie poster and uploads it to storage
-func (s *Service) FetchMoviePoster(videoPath string, movieTitle string, progressCb ProgressCallback) error {
+// FetchMoviePoster searches for a movie poster and uploads it to storage.
+// If posterURL is provided, it is used directly without performing a new search.
+func (s *Service) FetchMoviePoster(videoPath string, movieTitle string, posterURL string, progressCb ProgressCallback) error {
 	sendProgress := func(step string, progress int) {
 		if progressCb != nil {
 			progressCb(step, progress)
 		}
 	}
 
-	sendProgress("Getting API key", 5)
-	apiKey := os.Getenv("TMDB_API_KEY")
-	if apiKey == "" {
-		return fmt.Errorf("TMDB_API_KEY environment variable not set")
-	}
+	var actualPosterURL string
 
-	sendProgress("Searching for movie", 15)
+	if posterURL != "" {
+		// Use the provided poster URL directly, skipping the search
+		sendProgress("Using selected poster", 30)
+		actualPosterURL = posterURL
+	} else {
+		sendProgress("Getting API key", 5)
+		apiKey := os.Getenv("TMDB_API_KEY")
+		if apiKey == "" {
+			return fmt.Errorf("TMDB_API_KEY environment variable not set")
+		}
 
-	// Clean the movie title for better search results
-	cleanTitle := cleanMovieTitle(movieTitle)
+		sendProgress("Searching for movie", 15)
 
-	// Search for movie
-	searchURL := fmt.Sprintf("%s?api_key=%s&query=%s", tmdbSearchURL, apiKey, url.QueryEscape(cleanTitle))
-	resp, err := http.Get(searchURL)
-	if err != nil {
-		return fmt.Errorf("failed to search movie: %v", err)
-	}
-	defer resp.Body.Close()
+		// Clean the movie title for better search results
+		cleanTitle := cleanMovieTitle(movieTitle)
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("TMDb API error (status %d): %s", resp.StatusCode, string(body))
-	}
+		// Search for movie
+		searchURL := fmt.Sprintf("%s?api_key=%s&query=%s", tmdbSearchURL, apiKey, url.QueryEscape(cleanTitle))
+		resp, err := http.Get(searchURL)
+		if err != nil {
+			return fmt.Errorf("failed to search movie: %v", err)
+		}
+		defer resp.Body.Close()
 
-	var result TMDbSearchResult
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return fmt.Errorf("failed to decode search result: %v", err)
-	}
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			return fmt.Errorf("TMDb API error (status %d): %s", resp.StatusCode, string(body))
+		}
 
-	if len(result.Results) == 0 {
-		return fmt.Errorf("no movie found for title: %s", movieTitle)
-	}
+		var result TMDbSearchResult
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			return fmt.Errorf("failed to decode search result: %v", err)
+		}
 
-	// Try to find exact match first, then fall back to partial match
-	movie := findBestMatch(result.Results, cleanTitle)
-	if movie.PosterPath == nil || *movie.PosterPath == "" {
-		return fmt.Errorf("no poster available for: %s", movieTitle)
+		if len(result.Results) == 0 {
+			return fmt.Errorf("no movie found for title: %s", movieTitle)
+		}
+
+		// Try to find exact match first, then fall back to partial match
+		movie := findBestMatch(result.Results, cleanTitle)
+		if movie.PosterPath == nil || *movie.PosterPath == "" {
+			return fmt.Errorf("no poster available for: %s", movieTitle)
+		}
+
+		actualPosterURL = tmdbImageBase + *movie.PosterPath
 	}
 
 	sendProgress("Downloading poster", 40)
 
 	// Download poster image
-	posterURL := tmdbImageBase + *movie.PosterPath
-	posterResp, err := http.Get(posterURL)
+	posterResp, err := http.Get(actualPosterURL)
 	if err != nil {
 		return fmt.Errorf("failed to download poster: %v", err)
 	}

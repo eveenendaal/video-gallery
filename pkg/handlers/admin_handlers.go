@@ -211,16 +211,18 @@ func BulkClearThumbnailsHandler(w http.ResponseWriter, r *http.Request) {
 
 // FetchMoviePosterHandler handles API requests to fetch a movie poster
 func FetchMoviePosterHandler(w http.ResponseWriter, r *http.Request) {
-	var videoPath, movieTitle string
+	var videoPath, movieTitle, posterURL string
 
 	// Support both POST (JSON body) and GET (query params for EventSource)
 	if r.Method == http.MethodGet {
 		videoPath = r.URL.Query().Get("videoPath")
 		movieTitle = r.URL.Query().Get("movieTitle")
+		posterURL = r.URL.Query().Get("posterUrl")
 	} else if r.Method == http.MethodPost {
 		var req struct {
 			VideoPath  string `json:"videoPath"`
 			MovieTitle string `json:"movieTitle"`
+			PosterURL  string `json:"posterUrl"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -228,6 +230,7 @@ func FetchMoviePosterHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		videoPath = req.VideoPath
 		movieTitle = req.MovieTitle
+		posterURL = req.PosterURL
 	} else {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -266,7 +269,7 @@ func FetchMoviePosterHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fetch movie poster with progress updates
-	if err := services.FetchMoviePoster(videoPath, movieTitle, progressCb); err != nil {
+	if err := services.FetchMoviePoster(videoPath, movieTitle, posterURL, progressCb); err != nil {
 		log.Printf("Error fetching movie poster: %v", err)
 		errorData := map[string]interface{}{
 			"error":    err.Error(),

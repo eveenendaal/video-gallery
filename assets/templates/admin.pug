@@ -546,7 +546,7 @@ html
             |             
             |             results.slice(0, 5).forEach(function(movie, index) {
             |                 html += '<div class="column is-one-quarter-desktop is-one-third-tablet is-half-mobile">';
-            |                 html += '<div class="card poster-card" data-video-path="' + videoPath + '" data-movie-title="' + movie.title.replace(/"/g, '&quot;') + '">';
+            |                 html += '<div class="card poster-card" data-video-path="' + videoPath + '" data-movie-title="' + movie.title.replace(/"/g, '&quot;') + '" data-poster-url="' + movie.posterUrl + '">';
             |                 html += '<div class="card-image"><figure class="image is-2by3">';
             |                 html += '<img src="' + movie.thumbnailUrl + '" alt="' + movie.title + '">';
             |                 html += '</figure></div>';
@@ -564,7 +564,8 @@ html
             |                 card.addEventListener('click', function() {
             |                     const videoPath = this.dataset.videoPath;
             |                     const movieTitle = this.dataset.movieTitle;
-            |                     confirmPosterSelection(row, videoPath, movieTitle);
+            |                     const posterUrl = this.dataset.posterUrl;
+            |                     confirmPosterSelection(row, videoPath, movieTitle, posterUrl);
             |                 });
             |             });
             |             
@@ -583,14 +584,14 @@ html
             |         });
             | }
             | 
-            | function confirmPosterSelection(row, videoPath, movieTitle) {
+            | function confirmPosterSelection(row, videoPath, movieTitle, posterUrl) {
             |     const statusDiv = row.querySelector('.status-msg');
             |     
             |     statusDiv.classList.remove('is-danger');
             |     statusDiv.classList.add('is-info');
             |     statusDiv.innerHTML = '<progress class="progress is-small is-info" value="0" max="100">0%</progress><span>Fetching poster...</span>';
             |     
-            |     const eventSource = new EventSource('/' + secretKey + '/admin/api/fetch-movie-poster?videoPath=' + encodeURIComponent(videoPath) + '&movieTitle=' + encodeURIComponent(movieTitle));
+            |     const eventSource = new EventSource('/' + secretKey + '/admin/api/fetch-movie-poster?videoPath=' + encodeURIComponent(videoPath) + '&movieTitle=' + encodeURIComponent(movieTitle) + '&posterUrl=' + encodeURIComponent(posterUrl));
             |     
             |     eventSource.onmessage = function(event) {
             |         const data = JSON.parse(event.data);

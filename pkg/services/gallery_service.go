@@ -221,8 +221,8 @@ func BulkClearThumbnails() (int, error) {
 }
 
 // FetchMoviePoster searches for a movie poster and uploads it to storage
-func FetchMoviePoster(videoPath string, movieTitle string, progressCb ProgressCallback) error {
-	return defaultService.FetchMoviePoster(videoPath, movieTitle, progressCb)
+func FetchMoviePoster(videoPath string, movieTitle string, posterURL string, progressCb ProgressCallback) error {
+	return defaultService.FetchMoviePoster(videoPath, movieTitle, posterURL, progressCb)
 }
 
 // SearchMoviePoster searches for a movie and returns available posters

@@ -40,6 +40,7 @@ func (h *GalleryHandlers) IndexHandler(w http.ResponseWriter, _ *http.Request) {
 	if err = template.Execute(w, Index{Categories: h.galleryService.GetCategories()}); err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		log.Printf("Template execution error: %v", err)
+		return
 	}
 }
 
@@ -84,5 +85,6 @@ func (h *GalleryHandlers) PageHandler(w http.ResponseWriter, r *http.Request) {
 	if err = template.Execute(w, g); err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		log.Printf("Template execution error: %v", err)
+		return
 	}
 }

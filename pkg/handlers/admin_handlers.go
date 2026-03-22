@@ -69,6 +69,7 @@ func (h *AdminHandlers) AdminHandler(w http.ResponseWriter, r *http.Request) {
 	}); err != nil {
 		http.Error(w, "Template execution error", http.StatusInternalServerError)
 		log.Printf("Template execution error: %v", err)
+		return
 	}
 }
 

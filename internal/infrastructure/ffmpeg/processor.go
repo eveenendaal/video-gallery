@@ -15,7 +15,7 @@ const (
 	// colorDifferenceThreshold is the minimum per-channel difference between two
 	// pixels before they are considered different (accounts for JPEG compression
 	// artifacts).
-	colorDifferenceThreshold = uint32(256) // ~1 unit in 8-bit colour
+	colorDifferenceThreshold = uint32(256) // ~1 unit in 8-bit color
 )
 
 // Processor is an FFmpeg-backed implementation of gallery.VideoProcessor

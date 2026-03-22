@@ -21626,6 +21626,16 @@ html body .container .videos .video .caption {
     margin-bottom: 0.25rem;
   }
 }
+html body .container .poster-card {
+  cursor: pointer;
+  transition: all 200ms ease-in-out;
+  border: 2px solid transparent;
+}
+html body .container .poster-card:hover, html body .container .poster-card:focus {
+  border-color: hsl(198, 100%, 70%);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transform: translateY(-4px);
+}
 html body .container .thumbnail-preview {
   display: flex;
   align-items: center;

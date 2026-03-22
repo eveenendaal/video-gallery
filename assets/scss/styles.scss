@@ -79,6 +79,19 @@ html {
         }
       }
 
+      // Poster card hover effect for movie poster selection
+      .poster-card {
+        cursor: pointer;
+        transition: all 200ms ease-in-out;
+        border: 2px solid transparent;
+
+        &:hover, &:focus {
+          border-color: bulma.$info;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+          transform: translateY(-4px);
+        }
+      }
+
       // Admin page thumbnail styling
       .thumbnail-preview {
         display: flex;

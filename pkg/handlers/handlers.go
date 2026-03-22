@@ -7,12 +7,27 @@ import (
 
 	"github.com/eknkc/pug"
 
-	"video-gallery/pkg/models"
-	"video-gallery/pkg/services"
+	"video-gallery/internal/application"
+	"video-gallery/internal/domain/gallery"
 )
 
-// GalleryHandler handles requests for the gallery index page
-func GalleryHandler(w http.ResponseWriter, _ *http.Request) {
+// Index is the view model for the gallery index page
+type Index struct {
+	Categories []gallery.Category
+}
+
+// GalleryHandlers holds the HTTP handlers for the public gallery routes
+type GalleryHandlers struct {
+	galleryService *application.GalleryService
+}
+
+// NewGalleryHandlers creates GalleryHandlers with an injected GalleryService
+func NewGalleryHandlers(svc *application.GalleryService) *GalleryHandlers {
+	return &GalleryHandlers{galleryService: svc}
+}
+
+// IndexHandler handles requests for the gallery index page
+func (h *GalleryHandlers) IndexHandler(w http.ResponseWriter, _ *http.Request) {
 	log.Println("Generating Index")
 
 	template, err := pug.CompileFile("./assets/templates/index.pug", pug.Options{})
@@ -22,11 +37,7 @@ func GalleryHandler(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 
-	err = template.Execute(w, models.Index{
-		Categories: services.GetCategories(),
-	})
-
-	if err != nil {
+	if err = template.Execute(w, Index{Categories: h.galleryService.GetCategories()}); err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		log.Printf("Template execution error: %v", err)
 		return
@@ -34,12 +45,11 @@ func GalleryHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 // FeedHandler handles requests for the gallery feed (JSON)
-func FeedHandler(w http.ResponseWriter, _ *http.Request) {
+func (h *GalleryHandlers) FeedHandler(w http.ResponseWriter, _ *http.Request) {
 	log.Println("Generating Feed")
 
-	galleries := services.GetGalleries()
+	galleries := h.galleryService.GetGalleries()
 
-	// Convert to JSON
 	jsonData, err := json.Marshal(galleries)
 	if err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -47,7 +57,6 @@ func FeedHandler(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 
-	// Write JSON
 	w.Header().Set("Content-Type", "application/json")
 	if _, err = w.Write(jsonData); err != nil {
 		log.Printf("Error writing response: %v", err)
@@ -55,11 +64,10 @@ func FeedHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 // PageHandler handles requests for individual gallery pages
-func PageHandler(w http.ResponseWriter, r *http.Request) {
-	// Get the path
+func (h *GalleryHandlers) PageHandler(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.String()
 
-	gallery, err := services.GetGallery(path)
+	g, err := h.galleryService.GetGallery(path)
 	if err != nil {
 		log.Printf("Gallery not found: %s", path)
 		http.NotFound(w, r)
@@ -74,7 +82,7 @@ func PageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = template.Execute(w, gallery); err != nil {
+	if err = template.Execute(w, g); err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		log.Printf("Template execution error: %v", err)
 		return

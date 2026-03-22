@@ -9,17 +9,46 @@ import (
 
 	"github.com/eknkc/pug"
 
-	"video-gallery/pkg/models"
-	"video-gallery/pkg/services"
+	"video-gallery/internal/application"
+	"video-gallery/internal/domain/gallery"
 )
 
+// Admin is the view model for the admin page
+type Admin struct {
+	Categories []gallery.Category
+	SecretKey  string
+}
+
+// AdminHandlers holds the HTTP handlers for the admin routes
+type AdminHandlers struct {
+	galleryService   *application.GalleryService
+	thumbnailService *application.ThumbnailService
+	posterService    *application.PosterService
+	secretKey        string
+}
+
+// NewAdminHandlers creates AdminHandlers with injected application services
+func NewAdminHandlers(
+	gallerySvc *application.GalleryService,
+	thumbnailSvc *application.ThumbnailService,
+	posterSvc *application.PosterService,
+	secretKey string,
+) *AdminHandlers {
+	return &AdminHandlers{
+		galleryService:   gallerySvc,
+		thumbnailService: thumbnailSvc,
+		posterService:    posterSvc,
+		secretKey:        secretKey,
+	}
+}
+
 // AdminHandler handles requests for the admin page
-func AdminHandler(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandlers) AdminHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("Generating Admin Page")
 
-	// Extract secret key from the URL path (format: /{SECRET_KEY}/admin)
-	path := r.URL.Path
+	// Extract secret key from URL path (format: /{SECRET_KEY}/admin)
 	secretKey := ""
+	path := r.URL.Path
 	if len(path) > 1 {
 		parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
 		if len(parts) > 0 {
@@ -34,12 +63,10 @@ func AdminHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = template.Execute(w, models.Admin{
-		Categories: services.GetCategories(),
+	if err = template.Execute(w, Admin{
+		Categories: h.galleryService.GetCategories(),
 		SecretKey:  secretKey,
-	})
-
-	if err != nil {
+	}); err != nil {
 		http.Error(w, "Template execution error", http.StatusInternalServerError)
 		log.Printf("Template execution error: %v", err)
 		return
@@ -47,7 +74,7 @@ func AdminHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // GenerateThumbnailHandler handles API requests to generate a single thumbnail with SSE progress
-func GenerateThumbnailHandler(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandlers) GenerateThumbnailHandler(w http.ResponseWriter, r *http.Request) {
 	var videoPath string
 	var timeMs int
 
@@ -81,7 +108,6 @@ func GenerateThumbnailHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Generating thumbnail for video: %s at time: %dms", videoPath, timeMs)
 
-	// Set headers for SSE
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
@@ -93,37 +119,16 @@ func GenerateThumbnailHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Progress callback
-	progressCb := func(step string, progress int) {
-		data := map[string]interface{}{
-			"step":     step,
-			"progress": progress,
-		}
-		jsonData, _ := json.Marshal(data)
-		w.Write([]byte("data: "))
-		w.Write(jsonData)
-		w.Write([]byte("\n\n"))
-		flusher.Flush()
-	}
+	progressCb := makeSSEProgressCallback(w, flusher)
 
-	// Generate thumbnail with progress updates
-	if err := services.GenerateThumbnailWithProgress(videoPath, timeMs, progressCb); err != nil {
+	if err := h.thumbnailService.GenerateThumbnail(videoPath, timeMs, progressCb); err != nil {
 		log.Printf("Error generating thumbnail: %v", err)
-		errorData := map[string]interface{}{
-			"error":    err.Error(),
-			"progress": -1,
-		}
-		jsonData, _ := json.Marshal(errorData)
-		w.Write([]byte("data: "))
-		w.Write(jsonData)
-		w.Write([]byte("\n\n"))
-		flusher.Flush()
-		return
+		sendSSEError(w, flusher, err.Error())
 	}
 }
 
 // ClearThumbnailHandler handles API requests to clear a single thumbnail
-func ClearThumbnailHandler(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandlers) ClearThumbnailHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -132,7 +137,6 @@ func ClearThumbnailHandler(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		ThumbnailPath string `json:"thumbnailPath"`
 	}
-
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
@@ -140,20 +144,18 @@ func ClearThumbnailHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Clearing thumbnail: %s", req.ThumbnailPath)
 
-	if err := services.ClearThumbnail(req.ThumbnailPath); err != nil {
+	if err := h.thumbnailService.ClearThumbnail(req.ThumbnailPath); err != nil {
 		log.Printf("Error clearing thumbnail: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"message": "Thumbnail cleared successfully",
-	})
+	json.NewEncoder(w).Encode(map[string]string{"message": "Thumbnail cleared successfully"})
 }
 
 // BulkGenerateThumbnailsHandler handles API requests to generate all thumbnails
-func BulkGenerateThumbnailsHandler(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandlers) BulkGenerateThumbnailsHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -163,7 +165,6 @@ func BulkGenerateThumbnailsHandler(w http.ResponseWriter, r *http.Request) {
 		TimeMs int  `json:"timeMs"`
 		Force  bool `json:"force"`
 	}
-
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
@@ -171,7 +172,7 @@ func BulkGenerateThumbnailsHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Bulk generating thumbnails at time: %dms, force: %v", req.TimeMs, req.Force)
 
-	processed, errors, err := services.BulkGenerateThumbnails(req.TimeMs, req.Force)
+	processed, errors, err := h.thumbnailService.BulkGenerateThumbnails(req.TimeMs, req.Force)
 	if err != nil {
 		log.Printf("Error in bulk generate: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -187,7 +188,7 @@ func BulkGenerateThumbnailsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // BulkClearThumbnailsHandler handles API requests to clear all thumbnails
-func BulkClearThumbnailsHandler(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandlers) BulkClearThumbnailsHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -195,7 +196,7 @@ func BulkClearThumbnailsHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Println("Bulk clearing thumbnails")
 
-	deleted, err := services.BulkClearThumbnails()
+	deleted, err := h.thumbnailService.BulkClearThumbnails()
 	if err != nil {
 		log.Printf("Error in bulk clear: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -209,8 +210,8 @@ func BulkClearThumbnailsHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// FetchMoviePosterHandler handles API requests to fetch a movie poster
-func FetchMoviePosterHandler(w http.ResponseWriter, r *http.Request) {
+// FetchMoviePosterHandler handles API requests to fetch a movie poster with SSE progress
+func (h *AdminHandlers) FetchMoviePosterHandler(w http.ResponseWriter, r *http.Request) {
 	var videoPath, movieTitle, posterURL string
 
 	// Support both POST (JSON body) and GET (query params for EventSource)
@@ -243,7 +244,6 @@ func FetchMoviePosterHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Fetching movie poster for: %s (video: %s)", movieTitle, videoPath)
 
-	// Set headers for SSE
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
@@ -255,37 +255,16 @@ func FetchMoviePosterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Progress callback
-	progressCb := func(step string, progress int) {
-		data := map[string]interface{}{
-			"step":     step,
-			"progress": progress,
-		}
-		jsonData, _ := json.Marshal(data)
-		w.Write([]byte("data: "))
-		w.Write(jsonData)
-		w.Write([]byte("\n\n"))
-		flusher.Flush()
-	}
+	progressCb := makeSSEProgressCallback(w, flusher)
 
-	// Fetch movie poster with progress updates
-	if err := services.FetchMoviePoster(videoPath, movieTitle, posterURL, progressCb); err != nil {
+	if err := h.posterService.FetchMoviePoster(videoPath, movieTitle, posterURL, progressCb); err != nil {
 		log.Printf("Error fetching movie poster: %v", err)
-		errorData := map[string]interface{}{
-			"error":    err.Error(),
-			"progress": -1,
-		}
-		jsonData, _ := json.Marshal(errorData)
-		w.Write([]byte("data: "))
-		w.Write(jsonData)
-		w.Write([]byte("\n\n"))
-		flusher.Flush()
-		return
+		sendSSEError(w, flusher, err.Error())
 	}
 }
 
 // SearchMoviePosterHandler handles API requests to search for movie posters
-func SearchMoviePosterHandler(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandlers) SearchMoviePosterHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -299,7 +278,7 @@ func SearchMoviePosterHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Searching movie posters for: %s", movieTitle)
 
-	results, err := services.SearchMoviePoster(movieTitle)
+	results, err := h.posterService.SearchMoviePoster(movieTitle)
 	if err != nil {
 		log.Printf("Error searching movie posters: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -308,4 +287,26 @@ func SearchMoviePosterHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(results)
+}
+
+// makeSSEProgressCallback returns a ProgressCallback that streams JSON progress events
+func makeSSEProgressCallback(w http.ResponseWriter, flusher http.Flusher) application.ProgressCallback {
+	return func(step string, progress int) {
+		data := map[string]interface{}{"step": step, "progress": progress}
+		jsonData, _ := json.Marshal(data)
+		w.Write([]byte("data: "))
+		w.Write(jsonData)
+		w.Write([]byte("\n\n"))
+		flusher.Flush()
+	}
+}
+
+// sendSSEError streams an SSE error event
+func sendSSEError(w http.ResponseWriter, flusher http.Flusher, errMsg string) {
+	data := map[string]interface{}{"error": errMsg, "progress": -1}
+	jsonData, _ := json.Marshal(data)
+	w.Write([]byte("data: "))
+	w.Write(jsonData)
+	w.Write([]byte("\n\n"))
+	flusher.Flush()
 }

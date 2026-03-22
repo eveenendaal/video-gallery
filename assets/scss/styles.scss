@@ -82,11 +82,12 @@ html {
       // Poster card hover effect for movie poster selection
       .poster-card {
         cursor: pointer;
-        transition: all 200ms ease-in-out;
-        border: 2px solid transparent;
+        transition: box-shadow 200ms ease-in-out, transform 200ms ease-in-out, outline-color 200ms ease-in-out;
+        outline: 2px solid transparent;
+        outline-offset: 2px;
 
         &:hover, &:focus {
-          border-color: bulma.$info;
+          outline-color: bulma.$info;
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
           transform: translateY(-4px);
         }

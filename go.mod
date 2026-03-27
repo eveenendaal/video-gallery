@@ -5,7 +5,7 @@ go 1.25.0
 toolchain go1.25.4
 
 require (
-	cloud.google.com/go/storage v1.60.0
+	cloud.google.com/go/storage v1.61.3
 	github.com/eknkc/pug v0.0.0-20180224090515-607e1323ff9d
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/spf13/cobra v1.10.2

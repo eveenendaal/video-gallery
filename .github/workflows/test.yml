@@ -4,11 +4,6 @@ on:
   pull_request:
     branches:
       - 'master'
-    paths:
-      - 'assets/**'
-      - '**/*.go'
-      - '*'
-      - '.github/workflows/test.yml'
 
 jobs:
   test:

@@ -37,3 +37,11 @@ updates:
       interval: monthly
       time: "02:00"
       timezone: "Europe/Amsterdam"
+  - package-ecosystem: "npm"
+    directory: "/"
+    assignees:
+      - "eveenendaal"
+    schedule:
+      interval: monthly
+      time: "02:00"
+      timezone: "Europe/Amsterdam"

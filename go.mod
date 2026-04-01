@@ -9,7 +9,7 @@ require (
 	github.com/eknkc/pug v0.0.0-20180224090515-607e1323ff9d
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/spf13/cobra v1.10.2
-	google.golang.org/api v0.273.0
+	google.golang.org/api v0.273.1
 )
 
 require (

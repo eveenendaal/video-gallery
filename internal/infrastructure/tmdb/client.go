@@ -8,13 +8,29 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
+	"time"
 
 	"video-gallery/internal/domain/gallery"
 )
 
 const (
 	tmdbSearchURL = "https://api.themoviedb.org/3/search/movie"
+
+	// tmdbImageHost is the only host images may be downloaded from.
+	tmdbImageHost = "image.tmdb.org"
+
+	// maxImageBytes caps the size of a downloaded poster to avoid unbounded
+	// memory/disk use from a malicious or oversized response.
+	maxImageBytes = 25 * 1024 * 1024 // 25 MiB
+
+	// httpTimeout bounds outbound HTTP requests so a slow or hostile endpoint
+	// cannot hang a request indefinitely.
+	httpTimeout = 30 * time.Second
 )
+
+// httpClient is a shared client with a bounded timeout for all outbound requests.
+var httpClient = &http.Client{Timeout: httpTimeout}
 
 // tmdbSearchResult is the raw response shape from the TMDb search API
 type tmdbSearchResult struct {
@@ -46,7 +62,7 @@ func (c *Client) SearchMovies(_ context.Context, title string) ([]gallery.MovieR
 	}
 
 	searchURL := fmt.Sprintf("%s?api_key=%s&query=%s", tmdbSearchURL, apiKey, url.QueryEscape(title))
-	resp, err := http.Get(searchURL) // #nosec G107 -- URL is constructed from trusted constant + encoded user input
+	resp, err := httpClient.Get(searchURL) // #nosec G107 -- URL is constructed from a trusted constant + encoded user input
 	if err != nil {
 		return nil, fmt.Errorf("failed to search TMDb: %v", err)
 	}
@@ -74,9 +90,15 @@ func (c *Client) SearchMovies(_ context.Context, title string) ([]gallery.MovieR
 	return results, nil
 }
 
-// DownloadImage downloads an image from imageURL and saves it to destPath
+// DownloadImage downloads an image from imageURL and saves it to destPath.
+// imageURL must be an HTTPS URL on the TMDb image host; this guards against
+// SSRF in case an unvalidated URL ever reaches this method.
 func (c *Client) DownloadImage(_ context.Context, imageURL, destPath string) error {
-	resp, err := http.Get(imageURL) // #nosec G107 -- URL is a TMDb image URL provided by the application
+	if err := validateImageURL(imageURL); err != nil {
+		return err
+	}
+
+	resp, err := httpClient.Get(imageURL) // #nosec G107 -- validateImageURL restricts the host to the TMDb image CDN
 	if err != nil {
 		return fmt.Errorf("failed to download image: %v", err)
 	}
@@ -92,8 +114,29 @@ func (c *Client) DownloadImage(_ context.Context, imageURL, destPath string) err
 	}
 	defer f.Close()
 
-	if _, err := io.Copy(f, resp.Body); err != nil {
+	// Cap the number of bytes read so an oversized response cannot exhaust disk/memory.
+	limited := io.LimitReader(resp.Body, maxImageBytes+1)
+	written, err := io.Copy(f, limited)
+	if err != nil {
 		return fmt.Errorf("failed to write image data: %v", err)
+	}
+	if written > maxImageBytes {
+		return fmt.Errorf("image exceeds maximum allowed size of %d bytes", maxImageBytes)
+	}
+	return nil
+}
+
+// validateImageURL ensures imageURL uses HTTPS and targets the TMDb image host.
+func validateImageURL(imageURL string) error {
+	u, err := url.Parse(imageURL)
+	if err != nil {
+		return fmt.Errorf("invalid image URL")
+	}
+	if u.Scheme != "https" {
+		return fmt.Errorf("image URL must use https")
+	}
+	if !strings.EqualFold(u.Hostname(), tmdbImageHost) {
+		return fmt.Errorf("image URL host is not allowed")
 	}
 	return nil
 }

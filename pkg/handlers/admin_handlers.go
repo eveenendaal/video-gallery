@@ -2,9 +2,10 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
+	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/eknkc/pug"
@@ -12,6 +13,34 @@ import (
 	"video-gallery/internal/application"
 	"video-gallery/internal/domain/gallery"
 )
+
+// maxRequestBodyBytes caps JSON request bodies on the admin API endpoints.
+const maxRequestBodyBytes = 1 << 20 // 1 MiB
+
+var (
+	videoExtensions = []string{".mp4", ".m4v", ".webm", ".mov", ".avi"}
+	imageExtensions = []string{".jpg", ".jpeg", ".png"}
+)
+
+// isValidObjectPath checks that a caller-supplied storage path has the expected
+// "category/gallery/file" shape and one of the allowed extensions. This keeps
+// the admin API from being used to read or delete arbitrary bucket objects.
+func isValidObjectPath(path string, allowedExts []string) bool {
+	if path == "" || strings.Contains(path, "..") || strings.Contains(path, "?") {
+		return false
+	}
+	parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
+	if len(parts) != 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
+		return false
+	}
+	ext := strings.ToLower(filepath.Ext(parts[2]))
+	for _, allowed := range allowedExts {
+		if ext == allowed {
+			return true
+		}
+	}
+	return false
+}
 
 // Admin is the view model for the admin page
 type Admin struct {
@@ -58,7 +87,7 @@ func (h *AdminHandlers) AdminHandler(w http.ResponseWriter, r *http.Request) {
 
 	template, err := pug.CompileFile("./assets/templates/admin.pug", pug.Options{})
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Template error: %v", err), http.StatusInternalServerError)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		log.Printf("Template error: %v", err)
 		return
 	}
@@ -67,7 +96,7 @@ func (h *AdminHandlers) AdminHandler(w http.ResponseWriter, r *http.Request) {
 		Categories: h.galleryService.GetCategories(),
 		SecretKey:  secretKey,
 	}); err != nil {
-		http.Error(w, "Template execution error", http.StatusInternalServerError)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		log.Printf("Template execution error: %v", err)
 		return
 	}
@@ -83,13 +112,16 @@ func (h *AdminHandlers) GenerateThumbnailHandler(w http.ResponseWriter, r *http.
 		videoPath = r.URL.Query().Get("videoPath")
 		timeMs = 1000
 		if timeMsStr := r.URL.Query().Get("timeMs"); timeMsStr != "" {
-			fmt.Sscanf(timeMsStr, "%d", &timeMs)
+			if parsed, err := strconv.Atoi(timeMsStr); err == nil {
+				timeMs = parsed
+			}
 		}
 	} else if r.Method == http.MethodPost {
 		var req struct {
 			VideoPath string `json:"videoPath"`
 			TimeMs    int    `json:"timeMs"`
 		}
+		r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "Invalid request body", http.StatusBadRequest)
 			return
@@ -101,8 +133,12 @@ func (h *AdminHandlers) GenerateThumbnailHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	if videoPath == "" {
-		http.Error(w, "videoPath is required", http.StatusBadRequest)
+	if !isValidObjectPath(videoPath, videoExtensions) {
+		http.Error(w, "videoPath must be a valid video object path", http.StatusBadRequest)
+		return
+	}
+	if timeMs < 0 {
+		http.Error(w, "timeMs must not be negative", http.StatusBadRequest)
 		return
 	}
 
@@ -137,8 +173,14 @@ func (h *AdminHandlers) ClearThumbnailHandler(w http.ResponseWriter, r *http.Req
 	var req struct {
 		ThumbnailPath string `json:"thumbnailPath"`
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if !isValidObjectPath(req.ThumbnailPath, imageExtensions) {
+		http.Error(w, "thumbnailPath must be a valid image object path", http.StatusBadRequest)
 		return
 	}
 
@@ -165,8 +207,14 @@ func (h *AdminHandlers) BulkGenerateThumbnailsHandler(w http.ResponseWriter, r *
 		TimeMs int  `json:"timeMs"`
 		Force  bool `json:"force"`
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.TimeMs < 0 {
+		http.Error(w, "timeMs must not be negative", http.StatusBadRequest)
 		return
 	}
 
@@ -212,33 +260,46 @@ func (h *AdminHandlers) BulkClearThumbnailsHandler(w http.ResponseWriter, r *htt
 
 // FetchMoviePosterHandler handles API requests to fetch a movie poster with SSE progress
 func (h *AdminHandlers) FetchMoviePosterHandler(w http.ResponseWriter, r *http.Request) {
-	var videoPath, movieTitle, posterURL string
+	var videoPath, movieTitle string
+	var movieID int
 
 	// Support both POST (JSON body) and GET (query params for EventSource)
 	if r.Method == http.MethodGet {
 		videoPath = r.URL.Query().Get("videoPath")
 		movieTitle = r.URL.Query().Get("movieTitle")
-		posterURL = r.URL.Query().Get("posterUrl")
+		if movieIDStr := r.URL.Query().Get("movieId"); movieIDStr != "" {
+			parsed, err := strconv.Atoi(movieIDStr)
+			if err != nil || parsed < 0 {
+				http.Error(w, "movieId must be a non-negative integer", http.StatusBadRequest)
+				return
+			}
+			movieID = parsed
+		}
 	} else if r.Method == http.MethodPost {
 		var req struct {
 			VideoPath  string `json:"videoPath"`
 			MovieTitle string `json:"movieTitle"`
-			PosterURL  string `json:"posterUrl"`
+			MovieID    int    `json:"movieId"`
 		}
+		r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "Invalid request body", http.StatusBadRequest)
 			return
 		}
 		videoPath = req.VideoPath
 		movieTitle = req.MovieTitle
-		posterURL = req.PosterURL
+		movieID = req.MovieID
 	} else {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	if videoPath == "" || movieTitle == "" {
-		http.Error(w, "videoPath and movieTitle are required", http.StatusBadRequest)
+	if movieTitle == "" {
+		http.Error(w, "movieTitle is required", http.StatusBadRequest)
+		return
+	}
+	if !isValidObjectPath(videoPath, videoExtensions) {
+		http.Error(w, "videoPath must be a valid video object path", http.StatusBadRequest)
 		return
 	}
 
@@ -257,7 +318,7 @@ func (h *AdminHandlers) FetchMoviePosterHandler(w http.ResponseWriter, r *http.R
 
 	progressCb := makeSSEProgressCallback(w, flusher)
 
-	if err := h.posterService.FetchMoviePoster(videoPath, movieTitle, posterURL, progressCb); err != nil {
+	if err := h.posterService.FetchMoviePoster(videoPath, movieTitle, movieID, progressCb); err != nil {
 		log.Printf("Error fetching movie poster: %v", err)
 		sendSSEError(w, flusher, err.Error())
 	}

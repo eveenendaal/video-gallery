@@ -1,14 +1,14 @@
-package application
+package tmdb
 
 import "testing"
 
-func TestValidatePosterURL(t *testing.T) {
+func TestValidateImageURL(t *testing.T) {
 	allowed := []string{
 		"https://image.tmdb.org/t/p/w500/abc.jpg",
 		"https://IMAGE.TMDB.ORG/t/p/w185/def.jpg",
 	}
 	for _, u := range allowed {
-		if err := validatePosterURL(u); err != nil {
+		if err := validateImageURL(u); err != nil {
 			t.Errorf("expected %q to be allowed, got error: %v", u, err)
 		}
 	}
@@ -23,7 +23,7 @@ func TestValidatePosterURL(t *testing.T) {
 		"",                                            // empty
 	}
 	for _, u := range blocked {
-		if err := validatePosterURL(u); err == nil {
+		if err := validateImageURL(u); err == nil {
 			t.Errorf("expected %q to be blocked, but it was allowed", u)
 		}
 	}

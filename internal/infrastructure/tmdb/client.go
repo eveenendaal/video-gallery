@@ -16,6 +16,7 @@ import (
 
 const (
 	tmdbSearchURL = "https://api.themoviedb.org/3/search/movie"
+	tmdbMovieURL  = "https://api.themoviedb.org/3/movie"
 
 	// tmdbImageHost is the only host images may be downloaded from.
 	tmdbImageHost = "image.tmdb.org"
@@ -88,6 +89,44 @@ func (c *Client) SearchMovies(_ context.Context, title string) ([]gallery.MovieR
 		})
 	}
 	return results, nil
+}
+
+// GetMovie fetches a single movie by its TMDb ID. Looking movies up by numeric
+// ID (rather than accepting a caller-supplied URL) ensures poster downloads
+// only ever use URLs constructed from TMDb's own API responses.
+func (c *Client) GetMovie(_ context.Context, id int) (gallery.MovieResult, error) {
+	apiKey := c.resolveAPIKey()
+	if apiKey == "" {
+		return gallery.MovieResult{}, fmt.Errorf("TMDB_API_KEY is not set")
+	}
+
+	movieURL := fmt.Sprintf("%s/%d?api_key=%s", tmdbMovieURL, id, apiKey)
+	resp, err := httpClient.Get(movieURL) // #nosec G107 -- URL is a trusted constant plus an integer ID
+	if err != nil {
+		return gallery.MovieResult{}, fmt.Errorf("failed to fetch movie from TMDb: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return gallery.MovieResult{}, fmt.Errorf("TMDb API error (status %d)", resp.StatusCode)
+	}
+
+	var raw struct {
+		ID          int     `json:"id"`
+		Title       string  `json:"title"`
+		PosterPath  *string `json:"poster_path"`
+		ReleaseDate string  `json:"release_date"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+		return gallery.MovieResult{}, fmt.Errorf("failed to decode TMDb response: %v", err)
+	}
+
+	return gallery.MovieResult{
+		ID:          raw.ID,
+		Title:       raw.Title,
+		PosterPath:  raw.PosterPath,
+		ReleaseDate: raw.ReleaseDate,
+	}, nil
 }
 
 // DownloadImage downloads an image from imageURL and saves it to destPath.

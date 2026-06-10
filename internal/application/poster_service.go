@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,15 +14,11 @@ import (
 const (
 	tmdbImageBaseW500 = "https://image.tmdb.org/t/p/w500"
 	tmdbImageBaseW185 = "https://image.tmdb.org/t/p/w185"
-
-	// tmdbImageHost is the only host from which posters may be downloaded.
-	// Restricting downloads to this host prevents SSRF via a caller-supplied
-	// posterURL (e.g. pointing at internal services or the cloud metadata server).
-	tmdbImageHost = "image.tmdb.org"
 )
 
 // MoviePosterResult represents a movie poster search result returned to callers
 type MoviePosterResult struct {
+	ID           int    `json:"id"`
 	Title        string `json:"title"`
 	Year         string `json:"year"`
 	PosterURL    string `json:"posterUrl"`
@@ -51,24 +46,27 @@ func NewPosterService(
 }
 
 // FetchMoviePoster downloads a movie poster and stores it as the video's thumbnail.
-// If posterURL is non-empty it is used directly; otherwise a TMDb search is performed.
-func (s *PosterService) FetchMoviePoster(videoPath, movieTitle, posterURL string, progressCb ProgressCallback) error {
+// If movieID is positive the poster is looked up by TMDb ID; otherwise a TMDb
+// title search is performed. The poster URL is always constructed server-side
+// from TMDb API responses, so callers can never make the server fetch an
+// arbitrary URL (SSRF).
+func (s *PosterService) FetchMoviePoster(videoPath, movieTitle string, movieID int, progressCb ProgressCallback) error {
 	send := func(step string, progress int) {
 		if progressCb != nil {
 			progressCb(step, progress)
 		}
 	}
 
-	var actualPosterURL string
+	var movie gallery.MovieResult
 
-	if posterURL != "" {
-		// posterURL is caller-supplied; restrict it to the TMDb image host to
-		// prevent the server being coerced into fetching arbitrary URLs (SSRF).
-		if err := validatePosterURL(posterURL); err != nil {
-			return err
+	if movieID > 0 {
+		send("Fetching selected movie", 15)
+
+		var err error
+		movie, err = s.client.GetMovie(context.Background(), movieID)
+		if err != nil {
+			return fmt.Errorf("failed to fetch movie: %v", err)
 		}
-		send("Using selected poster", 30)
-		actualPosterURL = posterURL
 	} else {
 		send("Searching for movie", 15)
 
@@ -81,13 +79,14 @@ func (s *PosterService) FetchMoviePoster(videoPath, movieTitle, posterURL string
 			return fmt.Errorf("no movie found for title: %s", movieTitle)
 		}
 
-		movie := findBestMatch(results, cleanTitle)
-		if movie.PosterPath == nil || *movie.PosterPath == "" {
-			return fmt.Errorf("no poster available for: %s", movieTitle)
-		}
-
-		actualPosterURL = tmdbImageBaseW500 + *movie.PosterPath
+		movie = findBestMatch(results, cleanTitle)
 	}
+
+	if movie.PosterPath == nil || *movie.PosterPath == "" {
+		return fmt.Errorf("no poster available for: %s", movieTitle)
+	}
+
+	actualPosterURL := tmdbImageBaseW500 + *movie.PosterPath
 
 	send("Downloading poster", 40)
 
@@ -136,6 +135,7 @@ func (s *PosterService) SearchMoviePoster(movieTitle string) ([]MoviePosterResul
 	for _, movie := range results {
 		if movie.PosterPath != nil && *movie.PosterPath != "" {
 			posters = append(posters, MoviePosterResult{
+				ID:           movie.ID,
 				Title:        movie.Title,
 				Year:         extractYear(movie.ReleaseDate),
 				PosterURL:    tmdbImageBaseW500 + *movie.PosterPath,
@@ -144,25 +144,6 @@ func (s *PosterService) SearchMoviePoster(movieTitle string) ([]MoviePosterResul
 		}
 	}
 	return posters, nil
-}
-
-// validatePosterURL ensures a caller-supplied poster URL points at the trusted
-// TMDb image host over HTTPS. This blocks SSRF attempts that would otherwise let
-// a request coerce the server into fetching internal or arbitrary URLs.
-func validatePosterURL(rawURL string) error {
-	u, err := url.Parse(rawURL)
-	if err != nil {
-		return fmt.Errorf("invalid poster URL")
-	}
-	if u.Scheme != "https" {
-		return fmt.Errorf("poster URL must use https")
-	}
-	// Hostname() strips any port and userinfo, so this cannot be bypassed with
-	// constructs like "image.tmdb.org@evil.com" or "image.tmdb.org:1234".
-	if !strings.EqualFold(u.Hostname(), tmdbImageHost) {
-		return fmt.Errorf("poster URL host is not allowed")
-	}
-	return nil
 }
 
 // cleanMovieTitle removes common metadata suffixes from a movie title so that

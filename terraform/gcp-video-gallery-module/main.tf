@@ -1,6 +1,8 @@
 // Random String
+// The secret key is the sole access control for the gallery and admin pages,
+// so it needs enough entropy to resist URL brute-forcing.
 resource "random_string" "gallery_key" {
-  length  = 4
+  length  = 32
   special = false
 }
 

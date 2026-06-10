@@ -31,5 +31,6 @@ type MovieResult struct {
 // MoviePosterClient defines the contract for movie poster lookup and download operations
 type MoviePosterClient interface {
 	SearchMovies(ctx context.Context, title string) ([]MovieResult, error)
+	GetMovie(ctx context.Context, id int) (MovieResult, error)
 	DownloadImage(ctx context.Context, imageURL, destPath string) error
 }

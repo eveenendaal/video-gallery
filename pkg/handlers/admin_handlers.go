@@ -260,18 +260,26 @@ func (h *AdminHandlers) BulkClearThumbnailsHandler(w http.ResponseWriter, r *htt
 
 // FetchMoviePosterHandler handles API requests to fetch a movie poster with SSE progress
 func (h *AdminHandlers) FetchMoviePosterHandler(w http.ResponseWriter, r *http.Request) {
-	var videoPath, movieTitle, posterURL string
+	var videoPath, movieTitle string
+	var movieID int
 
 	// Support both POST (JSON body) and GET (query params for EventSource)
 	if r.Method == http.MethodGet {
 		videoPath = r.URL.Query().Get("videoPath")
 		movieTitle = r.URL.Query().Get("movieTitle")
-		posterURL = r.URL.Query().Get("posterUrl")
+		if movieIDStr := r.URL.Query().Get("movieId"); movieIDStr != "" {
+			parsed, err := strconv.Atoi(movieIDStr)
+			if err != nil || parsed < 0 {
+				http.Error(w, "movieId must be a non-negative integer", http.StatusBadRequest)
+				return
+			}
+			movieID = parsed
+		}
 	} else if r.Method == http.MethodPost {
 		var req struct {
 			VideoPath  string `json:"videoPath"`
 			MovieTitle string `json:"movieTitle"`
-			PosterURL  string `json:"posterUrl"`
+			MovieID    int    `json:"movieId"`
 		}
 		r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -280,7 +288,7 @@ func (h *AdminHandlers) FetchMoviePosterHandler(w http.ResponseWriter, r *http.R
 		}
 		videoPath = req.VideoPath
 		movieTitle = req.MovieTitle
-		posterURL = req.PosterURL
+		movieID = req.MovieID
 	} else {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -310,7 +318,7 @@ func (h *AdminHandlers) FetchMoviePosterHandler(w http.ResponseWriter, r *http.R
 
 	progressCb := makeSSEProgressCallback(w, flusher)
 
-	if err := h.posterService.FetchMoviePoster(videoPath, movieTitle, posterURL, progressCb); err != nil {
+	if err := h.posterService.FetchMoviePoster(videoPath, movieTitle, movieID, progressCb); err != nil {
 		log.Printf("Error fetching movie poster: %v", err)
 		sendSSEError(w, flusher, err.Error())
 	}

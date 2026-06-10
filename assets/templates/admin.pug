@@ -578,7 +578,7 @@ html
             |                 card.className = 'card poster-card';
             |                 card.dataset.videoPath = videoPath;
             |                 card.dataset.movieTitle = movie.title;
-            |                 card.dataset.posterUrl = movie.posterUrl;
+            |                 card.dataset.movieId = movie.id;
             |                 const cardImage = document.createElement('div');
             |                 cardImage.className = 'card-image';
             |                 const figure = document.createElement('figure');
@@ -619,8 +619,8 @@ html
             |                 card.addEventListener('click', function() {
             |                     const videoPath = this.dataset.videoPath;
             |                     const movieTitle = this.dataset.movieTitle;
-            |                     const posterUrl = this.dataset.posterUrl;
-            |                     confirmPosterSelection(row, videoPath, movieTitle, posterUrl);
+            |                     const movieId = this.dataset.movieId;
+            |                     confirmPosterSelection(row, videoPath, movieTitle, movieId);
             |                 });
             |             });
             |             
@@ -639,14 +639,14 @@ html
             |         });
             | }
             | 
-            | function confirmPosterSelection(row, videoPath, movieTitle, posterUrl) {
+            | function confirmPosterSelection(row, videoPath, movieTitle, movieId) {
             |     const statusDiv = row.querySelector('.status-msg');
             |     
             |     statusDiv.classList.remove('is-danger');
             |     statusDiv.classList.add('is-info');
             |     statusDiv.innerHTML = '<progress class="progress is-small is-info" value="0" max="100">0%</progress><span>Fetching poster...</span>';
             |     
-            |     const eventSource = new EventSource('/' + secretKey + '/admin/api/fetch-movie-poster?videoPath=' + encodeURIComponent(videoPath) + '&movieTitle=' + encodeURIComponent(movieTitle) + '&posterUrl=' + encodeURIComponent(posterUrl));
+            |     const eventSource = new EventSource('/' + secretKey + '/admin/api/fetch-movie-poster?videoPath=' + encodeURIComponent(videoPath) + '&movieTitle=' + encodeURIComponent(movieTitle) + '&movieId=' + encodeURIComponent(movieId));
             |     
             |     eventSource.onmessage = function(event) {
             |         const data = JSON.parse(event.data);

@@ -25,6 +25,8 @@ Access to the gallery and admin pages is controlled entirely by the
 - Always serve the application behind HTTPS — the secret key is part of every
   URL.
 - Treat gallery URLs as capability links: anyone with a link can view that
-  gallery and its videos until the signed URLs expire (24 hours).
+  gallery and its videos until the signed URLs expire (24 hours). Gallery
+  stubs are intentionally short (4 characters) to keep links shareable, so
+  they can be discovered by enumerating the /gallery/ namespace.
 - The GCS bucket should remain private; the application only exposes content
   through time-limited signed URLs.

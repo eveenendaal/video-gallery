@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"cloud.google.com/go/storage"
 	"github.com/spf13/cobra"
@@ -60,21 +61,48 @@ func serveWebsite(cfg *config.Config) error {
 	adminHandlers := handlers.NewAdminHandlers(gallerySvc, thumbnailSvc, posterSvc, cfg.SecretKey)
 
 	// --- Routes ---
+	mux := http.NewServeMux()
 	fileServer := http.FileServer(http.Dir("./public"))
-	http.Handle("/", fileServer)
-	http.HandleFunc("/gallery/", galleryHandlers.PageHandler)
-	http.HandleFunc(fmt.Sprintf("/%s/index", cfg.SecretKey), galleryHandlers.IndexHandler)
-	http.HandleFunc(fmt.Sprintf("/%s/feed", cfg.SecretKey), galleryHandlers.FeedHandler)
+	mux.Handle("/", fileServer)
+	mux.HandleFunc("/gallery/", galleryHandlers.PageHandler)
+	mux.HandleFunc(fmt.Sprintf("/%s/index", cfg.SecretKey), galleryHandlers.IndexHandler)
+	mux.HandleFunc(fmt.Sprintf("/%s/feed", cfg.SecretKey), galleryHandlers.FeedHandler)
 
 	// Admin routes — all protected by the secret key
-	http.HandleFunc(fmt.Sprintf("/%s/admin", cfg.SecretKey), adminHandlers.AdminHandler)
-	http.HandleFunc(fmt.Sprintf("/%s/admin/api/generate-thumbnail", cfg.SecretKey), adminHandlers.GenerateThumbnailHandler)
-	http.HandleFunc(fmt.Sprintf("/%s/admin/api/clear-thumbnail", cfg.SecretKey), adminHandlers.ClearThumbnailHandler)
-	http.HandleFunc(fmt.Sprintf("/%s/admin/api/bulk-generate-thumbnails", cfg.SecretKey), adminHandlers.BulkGenerateThumbnailsHandler)
-	http.HandleFunc(fmt.Sprintf("/%s/admin/api/bulk-clear-thumbnails", cfg.SecretKey), adminHandlers.BulkClearThumbnailsHandler)
-	http.HandleFunc(fmt.Sprintf("/%s/admin/api/fetch-movie-poster", cfg.SecretKey), adminHandlers.FetchMoviePosterHandler)
-	http.HandleFunc(fmt.Sprintf("/%s/admin/api/search-movie-poster", cfg.SecretKey), adminHandlers.SearchMoviePosterHandler)
+	mux.HandleFunc(fmt.Sprintf("/%s/admin", cfg.SecretKey), adminHandlers.AdminHandler)
+	mux.HandleFunc(fmt.Sprintf("/%s/admin/api/generate-thumbnail", cfg.SecretKey), adminHandlers.GenerateThumbnailHandler)
+	mux.HandleFunc(fmt.Sprintf("/%s/admin/api/clear-thumbnail", cfg.SecretKey), adminHandlers.ClearThumbnailHandler)
+	mux.HandleFunc(fmt.Sprintf("/%s/admin/api/bulk-generate-thumbnails", cfg.SecretKey), adminHandlers.BulkGenerateThumbnailsHandler)
+	mux.HandleFunc(fmt.Sprintf("/%s/admin/api/bulk-clear-thumbnails", cfg.SecretKey), adminHandlers.BulkClearThumbnailsHandler)
+	mux.HandleFunc(fmt.Sprintf("/%s/admin/api/fetch-movie-poster", cfg.SecretKey), adminHandlers.FetchMoviePosterHandler)
+	mux.HandleFunc(fmt.Sprintf("/%s/admin/api/search-movie-poster", cfg.SecretKey), adminHandlers.SearchMoviePosterHandler)
+
+	// No WriteTimeout: the admin SSE endpoints hold long-lived streaming responses.
+	server := &http.Server{
+		Addr:              cfg.ServerAddress(),
+		Handler:           securityHeaders(mux),
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
 
 	cfg.PrintServerStartMessage()
-	return http.ListenAndServe(cfg.ServerAddress(), nil)
+	return server.ListenAndServe()
+}
+
+// securityHeaders adds standard browser security headers to every response.
+// Referrer-Policy is set to no-referrer because the secret key is part of the
+// URL and must never leak through the Referer header. script-src/style-src
+// allow 'unsafe-inline' because the pug templates use inline scripts and styles.
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Referrer-Policy", "no-referrer")
+		w.Header().Set("Content-Security-Policy",
+			"default-src 'self'; img-src 'self' https: data:; media-src 'self' https:; "+
+				"script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "+
+				"connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'")
+		next.ServeHTTP(w, r)
+	})
 }

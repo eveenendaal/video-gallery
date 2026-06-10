@@ -128,7 +128,22 @@ html
 
         script
             | const secretKey = '#{SecretKey}';
-            | 
+            |
+            | /* Render a progress bar + label without innerHTML so that
+            |    externally sourced text (API errors, movie data) cannot inject markup. */
+            | function setStatusProgress(statusDiv, progress, step) {
+            |     statusDiv.textContent = '';
+            |     const bar = document.createElement('progress');
+            |     bar.className = 'progress is-small is-info';
+            |     bar.value = progress;
+            |     bar.max = 100;
+            |     bar.textContent = progress + '%';
+            |     const label = document.createElement('span');
+            |     label.textContent = step + '...';
+            |     statusDiv.appendChild(bar);
+            |     statusDiv.appendChild(label);
+            | }
+            |
             | function saveFilterState() {
             |     const params = new URLSearchParams();
             |     const category = document.getElementById('filterCategory').value;
@@ -461,7 +476,7 @@ html
             |             eventSource.close();
             |             statusDiv.classList.remove('is-info', 'is-success');
             |             statusDiv.classList.add('is-danger');
-            |             statusDiv.innerHTML = 'Error: ' + data.error;
+            |             statusDiv.textContent = 'Error: ' + data.error;
             |             if (callback) callback();
             |             return;
             |         }
@@ -479,14 +494,14 @@ html
             |             return;
             |         }
             |         
-            |         statusDiv.innerHTML = '<progress class="progress is-small is-info" value="' + data.progress + '" max="100">' + data.progress + '%</progress><span>' + data.step + '...</span>';
+            |         setStatusProgress(statusDiv, data.progress, data.step);
             |     };
             |     
             |     eventSource.onerror = function(error) {
             |         eventSource.close();
             |         statusDiv.classList.remove('is-info', 'is-success');
             |         statusDiv.classList.add('is-danger');
-            |         statusDiv.innerHTML = 'Error: Connection failed';
+            |         statusDiv.textContent = 'Error: Connection failed';
             |         if (callback) callback();
             |     };
             | }
@@ -534,30 +549,70 @@ html
             |             if (!results || results.length === 0) {
             |                 statusDiv.classList.remove('is-info', 'is-success');
             |                 statusDiv.classList.add('is-danger');
-            |                 statusDiv.innerHTML = 'No movies found for: ' + movieTitle;
+            |                 statusDiv.textContent = 'No movies found for: ' + movieTitle;
             |                 return;
             |             }
             |             
-            |             /* Show poster selection UI */
+            |             /* Show poster selection UI. Built with DOM APIs (not innerHTML)
+            |                because movie titles/URLs come from the external TMDb API. */
             |             statusDiv.classList.remove('is-danger');
             |             statusDiv.classList.add('is-info');
-            |             
-            |             let html = '<div class="poster-selection"><p class="mb-3"><strong>Select the correct movie:</strong></p><div class="columns is-multiline is-mobile is-variable is-2">';
-            |             
-            |             results.slice(0, 5).forEach(function(movie, index) {
-            |                 html += '<div class="column is-one-quarter-desktop is-one-third-tablet is-half-mobile">';
-            |                 html += '<div class="card poster-card" data-video-path="' + videoPath + '" data-movie-title="' + movie.title.replace(/"/g, '&quot;') + '" data-poster-url="' + movie.posterUrl + '">';
-            |                 html += '<div class="card-image"><figure class="image is-2by3">';
-            |                 html += '<img src="' + movie.thumbnailUrl + '" alt="' + movie.title + '">';
-            |                 html += '</figure></div>';
-            |                 html += '<div class="card-content p-2"><p class="is-size-7 has-text-centered has-text-weight-semibold">' + movie.title;
-            |                 if (movie.year) html += '<br><span class="has-text-grey">(' + movie.year + ')</span>';
-            |                 html += '</p></div></div></div>';
+            |             statusDiv.textContent = '';
+            |
+            |             const selection = document.createElement('div');
+            |             selection.className = 'poster-selection';
+            |             const heading = document.createElement('p');
+            |             heading.className = 'mb-3';
+            |             const headingText = document.createElement('strong');
+            |             headingText.textContent = 'Select the correct movie:';
+            |             heading.appendChild(headingText);
+            |             selection.appendChild(heading);
+            |
+            |             const columns = document.createElement('div');
+            |             columns.className = 'columns is-multiline is-mobile is-variable is-2';
+            |
+            |             results.slice(0, 5).forEach(function(movie) {
+            |                 const column = document.createElement('div');
+            |                 column.className = 'column is-one-quarter-desktop is-one-third-tablet is-half-mobile';
+            |                 const card = document.createElement('div');
+            |                 card.className = 'card poster-card';
+            |                 card.dataset.videoPath = videoPath;
+            |                 card.dataset.movieTitle = movie.title;
+            |                 card.dataset.posterUrl = movie.posterUrl;
+            |                 const cardImage = document.createElement('div');
+            |                 cardImage.className = 'card-image';
+            |                 const figure = document.createElement('figure');
+            |                 figure.className = 'image is-2by3';
+            |                 const img = document.createElement('img');
+            |                 img.src = movie.thumbnailUrl;
+            |                 img.alt = movie.title;
+            |                 figure.appendChild(img);
+            |                 cardImage.appendChild(figure);
+            |                 card.appendChild(cardImage);
+            |                 const content = document.createElement('div');
+            |                 content.className = 'card-content p-2';
+            |                 const text = document.createElement('p');
+            |                 text.className = 'is-size-7 has-text-centered has-text-weight-semibold';
+            |                 text.textContent = movie.title;
+            |                 if (movie.year) {
+            |                     text.appendChild(document.createElement('br'));
+            |                     const year = document.createElement('span');
+            |                     year.className = 'has-text-grey';
+            |                     year.textContent = '(' + movie.year + ')';
+            |                     text.appendChild(year);
+            |                 }
+            |                 content.appendChild(text);
+            |                 card.appendChild(content);
+            |                 column.appendChild(card);
+            |                 columns.appendChild(column);
             |             });
-            |             
-            |             html += '</div><button class="button is-small is-light mt-2 cancel-poster-btn">Cancel</button></div>';
-            |             
-            |             statusDiv.innerHTML = html;
+            |
+            |             selection.appendChild(columns);
+            |             const cancelBtn = document.createElement('button');
+            |             cancelBtn.className = 'button is-small is-light mt-2 cancel-poster-btn';
+            |             cancelBtn.textContent = 'Cancel';
+            |             selection.appendChild(cancelBtn);
+            |             statusDiv.appendChild(selection);
             |             
             |             /* Add click handlers to poster cards */
             |             statusDiv.querySelectorAll('.poster-card').forEach(function(card) {
@@ -580,7 +635,7 @@ html
             |         .catch(function(error) {
             |             statusDiv.classList.remove('is-info', 'is-success');
             |             statusDiv.classList.add('is-danger');
-            |             statusDiv.innerHTML = 'Error: ' + error.message;
+            |             statusDiv.textContent = 'Error: ' + error.message;
             |         });
             | }
             | 
@@ -600,7 +655,7 @@ html
             |             eventSource.close();
             |             statusDiv.classList.remove('is-info', 'is-success');
             |             statusDiv.classList.add('is-danger');
-            |             statusDiv.innerHTML = 'Error: ' + data.error;
+            |             statusDiv.textContent = 'Error: ' + data.error;
             |             return;
             |         }
             |         
@@ -613,14 +668,14 @@ html
             |             return;
             |         }
             |         
-            |         statusDiv.innerHTML = '<progress class="progress is-small is-info" value="' + data.progress + '" max="100">' + data.progress + '%</progress><span>' + data.step + '...</span>';
+            |         setStatusProgress(statusDiv, data.progress, data.step);
             |     };
             |     
             |     eventSource.onerror = function(error) {
             |         eventSource.close();
             |         statusDiv.classList.remove('is-info', 'is-success');
             |         statusDiv.classList.add('is-danger');
-            |         statusDiv.innerHTML = 'Error: Connection failed';
+            |         statusDiv.textContent = 'Error: Connection failed';
             |     };
             | }
             | 

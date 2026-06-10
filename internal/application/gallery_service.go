@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
@@ -82,10 +83,12 @@ func (s *GalleryService) GetGalleries() []gallery.Gallery {
 		if g, exists := galleryMap[galleryName]; exists {
 			g.Videos = append(g.Videos, video)
 		} else {
-			// Generate hash for gallery URL (non-security use case — URL identifier only)
-			hash := sha256.New()
-			hash.Write([]byte(galleryName + s.secretKey))
-			hashStr := base64.URLEncoding.EncodeToString(hash.Sum(nil))[0:4]
+			// Gallery pages are served without the secret key, so the stub acts as
+			// an unguessable capability URL. Use an HMAC keyed with the secret and
+			// keep 16 url-safe base64 chars (~96 bits) to resist enumeration.
+			mac := hmac.New(sha256.New, []byte(s.secretKey))
+			mac.Write([]byte(galleryName))
+			hashStr := base64.RawURLEncoding.EncodeToString(mac.Sum(nil))[0:16]
 
 			galleryMap[galleryName] = &gallery.Gallery{
 				Name:     galleryName,

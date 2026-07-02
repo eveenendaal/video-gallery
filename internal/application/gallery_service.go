@@ -82,12 +82,13 @@ func (s *GalleryService) GetGalleries() []gallery.Gallery {
 		if g, exists := galleryMap[galleryName]; exists {
 			g.Videos = append(g.Videos, video)
 		} else {
-			// Gallery URL stub. Kept intentionally short (4 chars) so gallery
-			// links stay easy to share, at the cost of being guessable by
-			// enumeration of the /gallery/ namespace.
+			// Gallery URL stub. Derived from the gallery name salted with the
+			// secret key. Uses 16 base64url chars (~96 bits) so the stub stays
+			// short enough to share while being infeasible to guess by
+			// enumeration of the unauthenticated /gallery/ namespace.
 			hash := sha256.New()
 			hash.Write([]byte(galleryName + s.secretKey))
-			hashStr := base64.URLEncoding.EncodeToString(hash.Sum(nil))[0:4]
+			hashStr := base64.URLEncoding.EncodeToString(hash.Sum(nil))[0:16]
 
 			galleryMap[galleryName] = &gallery.Gallery{
 				Name:     galleryName,

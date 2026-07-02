@@ -1,7 +1,8 @@
-// Random String
+// Random secret
 // The secret key is the sole access control for the gallery and admin pages,
-// so it needs enough entropy to resist URL brute-forcing.
-resource "random_string" "gallery_key" {
+// so it needs enough entropy to resist URL brute-forcing. random_password marks
+// the generated value as sensitive so it is not shown in `terraform plan` output.
+resource "random_password" "gallery_key" {
   length  = 32
   special = false
 }
@@ -35,7 +36,7 @@ resource "google_cloud_run_service" "video_gallery" {
 
         env {
           name  = "SECRET_KEY"
-          value = random_string.gallery_key.result
+          value = random_password.gallery_key.result
         }
 
         resources {

@@ -138,7 +138,7 @@ func validateLocalPath(path string) error {
 		return fmt.Errorf("path must be absolute: %s", path)
 	}
 	expectedDir := filepath.Clean(filepath.Join(os.TempDir(), "video-gallery-thumbnails"))
-	if !strings.HasPrefix(cleanPath, expectedDir) {
+	if cleanPath != expectedDir && !strings.HasPrefix(cleanPath, expectedDir+string(os.PathSeparator)) {
 		return fmt.Errorf("invalid path: must be within temp directory")
 	}
 	return nil

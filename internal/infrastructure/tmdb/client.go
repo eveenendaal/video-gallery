@@ -3,6 +3,7 @@ package tmdb
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -65,7 +66,7 @@ func (c *Client) SearchMovies(_ context.Context, title string) ([]gallery.MovieR
 	searchURL := fmt.Sprintf("%s?api_key=%s&query=%s", tmdbSearchURL, apiKey, url.QueryEscape(title))
 	resp, err := httpClient.Get(searchURL) // #nosec G107 -- URL is constructed from a trusted constant + encoded user input
 	if err != nil {
-		return nil, fmt.Errorf("failed to search TMDb: %v", err)
+		return nil, fmt.Errorf("failed to search TMDb: %v", scrubURLError(err))
 	}
 	defer resp.Body.Close()
 
@@ -103,7 +104,7 @@ func (c *Client) GetMovie(_ context.Context, id int) (gallery.MovieResult, error
 	movieURL := fmt.Sprintf("%s/%d?api_key=%s", tmdbMovieURL, id, apiKey)
 	resp, err := httpClient.Get(movieURL) // #nosec G107 -- URL is a trusted constant plus an integer ID
 	if err != nil {
-		return gallery.MovieResult{}, fmt.Errorf("failed to fetch movie from TMDb: %v", err)
+		return gallery.MovieResult{}, fmt.Errorf("failed to fetch movie from TMDb: %v", scrubURLError(err))
 	}
 	defer resp.Body.Close()
 
@@ -185,4 +186,14 @@ func (c *Client) resolveAPIKey() string {
 		return c.apiKey
 	}
 	return os.Getenv("TMDB_API_KEY")
+}
+
+// scrubURLError strips the request URL from an *url.Error so that the api_key
+// query parameter is never included in a returned or logged error message.
+func scrubURLError(err error) error {
+	var urlErr *url.Error
+	if errors.As(err, &urlErr) {
+		return urlErr.Err
+	}
+	return err
 }

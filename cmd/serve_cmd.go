@@ -9,11 +9,16 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/spf13/cobra"
 
 	"video-gallery/internal/application"
-	gcsrepo "video-gallery/internal/infrastructure/gcs"
+	"video-gallery/internal/domain/gallery"
 	"video-gallery/internal/infrastructure/ffmpeg"
+	gcsrepo "video-gallery/internal/infrastructure/gcs"
+	r2repo "video-gallery/internal/infrastructure/r2"
 	"video-gallery/internal/infrastructure/tmdb"
 	"video-gallery/pkg/config"
 	"video-gallery/pkg/handlers"
@@ -42,12 +47,10 @@ func newServeCmd() *cobra.Command {
 func serveWebsite(cfg *config.Config) error {
 	// --- Infrastructure ---
 	ctx := context.Background()
-	gcsClient, err := storage.NewClient(ctx)
+	storageRepo, err := newStorageRepository(ctx, cfg)
 	if err != nil {
-		return fmt.Errorf("failed to create GCS client: %v", err)
+		return err
 	}
-
-	storageRepo := gcsrepo.NewStorageRepository(cfg.BucketName, gcsClient)
 	videoProcessor := ffmpeg.NewProcessor()
 	posterClient := tmdb.NewClient(cfg.TMDbAPIKey)
 
@@ -88,6 +91,28 @@ func serveWebsite(cfg *config.Config) error {
 
 	cfg.PrintServerStartMessage()
 	return server.ListenAndServe()
+}
+
+// newStorageRepository constructs the StorageRepository implementation selected by cfg.StorageBackend
+func newStorageRepository(ctx context.Context, cfg *config.Config) (gallery.StorageRepository, error) {
+	switch cfg.StorageBackend {
+	case "r2":
+		s3Client := s3.New(s3.Options{
+			Region:       "auto",
+			BaseEndpoint: aws.String(fmt.Sprintf("https://%s.r2.cloudflarestorage.com", cfg.R2AccountID)),
+			Credentials:  credentials.NewStaticCredentialsProvider(cfg.R2AccessKeyID, cfg.R2SecretAccessKey, ""),
+		})
+		presignClient := s3.NewPresignClient(s3Client)
+		return r2repo.NewStorageRepository(cfg.BucketName, s3Client, presignClient), nil
+	case "gcs":
+		gcsClient, err := storage.NewClient(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create GCS client: %v", err)
+		}
+		return gcsrepo.NewStorageRepository(cfg.BucketName, gcsClient), nil
+	default:
+		return nil, fmt.Errorf("unknown STORAGE_BACKEND: %q (expected \"gcs\" or \"r2\")", cfg.StorageBackend)
+	}
 }
 
 // securityHeaders adds standard browser security headers to every response.

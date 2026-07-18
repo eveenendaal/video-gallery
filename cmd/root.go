@@ -8,9 +8,10 @@ import (
 
 // Configuration flags
 var (
-	secretKey  string
-	bucketName string
-	portNumber string
+	secretKey      string
+	bucketName     string
+	portNumber     string
+	storageBackend string
 )
 
 // Version of the application (set at build time)
@@ -31,6 +32,7 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.PersistentFlags().StringVarP(&secretKey, "secret-key", "s", "", "Set the SECRET_KEY (overrides environment variable)")
 	rootCmd.PersistentFlags().StringVarP(&bucketName, "bucket", "b", "", "Set the BUCKET_NAME (overrides environment variable)")
 	rootCmd.PersistentFlags().StringVarP(&portNumber, "port", "p", "", "Set the PORT (overrides environment variable)")
+	rootCmd.PersistentFlags().StringVar(&storageBackend, "storage-backend", "", "Set the STORAGE_BACKEND: gcs or r2 (overrides environment variable)")
 
 	// Add commands to root
 	rootCmd.AddCommand(newServeCmd())
@@ -51,6 +53,10 @@ func LoadConfig() (*config.Config, error) {
 
 	if portNumber != "" {
 		os.Setenv("PORT", portNumber)
+	}
+
+	if storageBackend != "" {
+		os.Setenv("STORAGE_BACKEND", storageBackend)
 	}
 
 	// Load configuration from environment variables (potentially set above)

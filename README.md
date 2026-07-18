@@ -201,6 +201,35 @@ To deploy to Cloud Run:
 
 **TMDB_API_KEY** (Optional) - API key from The Movie Database (TMDb) for fetching movie posters. Required if you want to use the "Movie Poster" feature in the admin panel. Get a free API key at https://www.themoviedb.org/settings/api
 
+**STORAGE_BACKEND** (Optional) - Which storage backend to use: `gcs` (default) or `r2`. See [Storage Backends](#storage-backends) below.
+
+### Storage Backends
+
+The application supports two interchangeable storage backends behind the same `BUCKET_NAME`/gallery-layout convention. Select one with `STORAGE_BACKEND`:
+
+#### Google Cloud Storage (`STORAGE_BACKEND=gcs`, default)
+
+Uses Application Default Credentials — no extra environment variables needed beyond `BUCKET_NAME`. Locally, run `gcloud auth login --update-adc` and mount `~/.config/gcloud` into the container.
+
+#### Cloudflare R2 (`STORAGE_BACKEND=r2`)
+
+Uses R2's S3-compatible API with static credentials. Requires:
+
+**R2_ACCOUNT_ID** - Your Cloudflare account ID.
+
+**R2_ACCESS_KEY_ID** / **R2_SECRET_ACCESS_KEY** - S3-compatible credentials from an R2 API token (Object Read & Write, scoped to the bucket).
+
+```bash
+docker run -p 8080:8080 \
+  -e SECRET_KEY=your-secret-key \
+  -e BUCKET_NAME=your-bucket-name \
+  -e STORAGE_BACKEND=r2 \
+  -e R2_ACCOUNT_ID=your-cloudflare-account-id \
+  -e R2_ACCESS_KEY_ID=your-r2-access-key-id \
+  -e R2_SECRET_ACCESS_KEY=your-r2-secret-access-key \
+  ghcr.io/eveenendaal/video-gallery:latest
+```
+
 #### Terraform
 
 You can find example terraform code in the [terraform](terraform) directory.

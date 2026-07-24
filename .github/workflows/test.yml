@@ -101,6 +101,8 @@ jobs:
     needs: [changes, backend, frontend]
     if: always()
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Check job results
         run: |

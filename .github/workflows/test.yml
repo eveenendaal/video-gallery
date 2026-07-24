@@ -6,7 +6,41 @@ on:
       - 'master'
 
 jobs:
-  test:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Detect changed areas
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - '**/*.go'
+              - 'go.mod'
+              - 'go.sum'
+              - 'assets/templates/**'
+              - 'Makefile'
+              - '.github/workflows/test.yml'
+            frontend:
+              - 'assets/scss/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.node-version'
+              - '.github/workflows/test.yml'
+
+  backend:
+    name: Backend
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     environment: default
     permissions:
@@ -25,6 +59,28 @@ jobs:
           go-version: 'stable'
           cache: true
 
+      - name: Build Backend
+        run: go build ./...
+
+      - name: Test Backend
+        run: go test ./...
+
+  frontend:
+    name: Frontend
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    environment: default
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
@@ -37,5 +93,20 @@ jobs:
       - name: Build Styles
         run: npm run build
 
-      - name: Build Backend
-        run: go build -o video-gallery
+  # Aggregates the conditional jobs above into a single required status check,
+  # since GitHub branch protection can't target jobs that are skipped based on
+  # the paths that changed.
+  test:
+    name: Test
+    needs: [changes, backend, frontend]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check job results
+        run: |
+          if [[ "${{ needs.backend.result }}" == "failure" || "${{ needs.frontend.result }}" == "failure" ]]; then
+            echo "One or more required jobs failed"
+            exit 1
+          fi

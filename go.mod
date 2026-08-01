@@ -3,7 +3,7 @@ module video-gallery
 go 1.25.8
 
 require (
-	cloud.google.com/go/storage v1.63.0
+	cloud.google.com/go/storage v1.64.0
 	github.com/aws/aws-sdk-go-v2 v1.43.1
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.31
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.105.2

@@ -191,8 +191,7 @@ func (c *Client) resolveAPIKey() string {
 // scrubURLError strips the request URL from an *url.Error so that the api_key
 // query parameter is never included in a returned or logged error message.
 func scrubURLError(err error) error {
-	var urlErr *url.Error
-	if errors.As(err, &urlErr) {
+	if urlErr, ok := errors.AsType[*url.Error](err); ok {
 		return urlErr.Err
 	}
 	return err

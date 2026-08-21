@@ -1,6 +1,6 @@
 module video-gallery
 
-go 1.25.8
+go 1.27.0
 
 require (
 	cloud.google.com/go/storage v1.64.0

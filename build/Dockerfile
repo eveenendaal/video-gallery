@@ -18,7 +18,7 @@ COPY assets/scss ./assets/scss
 RUN npm run build
 
 # Backend build stage
-FROM golang:1.25-alpine3.22 AS builder
+FROM golang:1.27-alpine3.24 AS builder
 
 # Install CA certificates for downloading Go modules
 RUN apk add --no-cache ca-certificates

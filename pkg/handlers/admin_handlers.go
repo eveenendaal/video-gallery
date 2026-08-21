@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -34,12 +35,7 @@ func isValidObjectPath(path string, allowedExts []string) bool {
 		return false
 	}
 	ext := strings.ToLower(filepath.Ext(parts[2]))
-	for _, allowed := range allowedExts {
-		if ext == allowed {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(allowedExts, ext)
 }
 
 // Admin is the view model for the admin page
@@ -228,7 +224,7 @@ func (h *AdminHandlers) BulkGenerateThumbnailsHandler(w http.ResponseWriter, r *
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	json.NewEncoder(w).Encode(map[string]any{
 		"message":   "Bulk thumbnail generation completed",
 		"processed": processed,
 		"errors":    errors,
@@ -252,7 +248,7 @@ func (h *AdminHandlers) BulkClearThumbnailsHandler(w http.ResponseWriter, r *htt
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	json.NewEncoder(w).Encode(map[string]any{
 		"message": "All thumbnails cleared successfully",
 		"deleted": deleted,
 	})
@@ -353,7 +349,7 @@ func (h *AdminHandlers) SearchMoviePosterHandler(w http.ResponseWriter, r *http.
 // makeSSEProgressCallback returns a ProgressCallback that streams JSON progress events
 func makeSSEProgressCallback(w http.ResponseWriter, flusher http.Flusher) application.ProgressCallback {
 	return func(step string, progress int) {
-		data := map[string]interface{}{"step": step, "progress": progress}
+		data := map[string]any{"step": step, "progress": progress}
 		jsonData, _ := json.Marshal(data)
 		w.Write([]byte("data: "))
 		w.Write(jsonData)
@@ -364,7 +360,7 @@ func makeSSEProgressCallback(w http.ResponseWriter, flusher http.Flusher) applic
 
 // sendSSEError streams an SSE error event
 func sendSSEError(w http.ResponseWriter, flusher http.Flusher, errMsg string) {
-	data := map[string]interface{}{"error": errMsg, "progress": -1}
+	data := map[string]any{"error": errMsg, "progress": -1}
 	jsonData, _ := json.Marshal(data)
 	w.Write([]byte("data: "))
 	w.Write(jsonData)

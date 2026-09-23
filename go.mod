@@ -10,7 +10,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.20.1
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.109.1
 	github.com/eknkc/pug v0.0.0-20180224090515-607e1323ff9d
-	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/spf13/cobra v1.10.2
 	google.golang.org/api v0.295.0
 )

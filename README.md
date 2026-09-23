@@ -56,76 +56,29 @@ Each video has controls to:
 4. Click "Clear Selected" to remove thumbnails from selected videos
 5. Adjust parallel operations (1-10) to control processing speed
 
+Generated thumbnails and posters are always written as `<video name>.jpg` next to the video, replacing any existing `.jpg` thumbnail only once the new one has been produced successfully.
+
 **Movie Poster Feature:**
 When using "Movie Poster" mode, the system:
-- Automatically extracts the movie title from the video filename
-- Removes file extensions, years in brackets, and normalizes formatting
-- Searches The Movie Database (TMDb) for matching movies
-- Downloads and uploads the official movie poster as the thumbnail
-- Requires TMDB_API_KEY environment variable to be set
+- Uses the video's name as the search title, dropping anything from the first `(` or `[` onward (e.g. `Alien (1979) [4K]` searches for `Alien`)
+- Searches The Movie Database (TMDb) and lets you pick the matching movie
+- Downloads the poster and stores it as the video's `.jpg` thumbnail
+- Requires the `TMDB_API_KEY` environment variable to be set
 
 The interface will show real-time progress of each operation and automatically refresh after successful completion.
 
 ## Feed Schema
 
-Below is the formal schema for the video feed the player expects.
-
-```
-{
-    "$schema": "http://json-schema.org/draft-04/schema#",
-    "type": "array",
-    "items": [
-        {
-            "type": "object",
-            "properties": {
-                "name": {
-                    "type": "string"
-                },
-                "category": {
-                    "type": "string"
-                },
-                "videos": {
-                    "type": "array",
-                    "items": [
-                        {
-                            "type": "object",
-                            "properties": {
-                                "name": {
-                                    "type": "string"
-                                },
-                                "url": {
-                                    "type": "string"
-                                },
-                                "thumbnail": {
-                                    "type": "string"
-                                }
-                            },
-                            "required": [
-                                "name",
-                                "url"
-                            ]
-                        }
-                    ]
-                }
-            },
-            "required": [
-                "name",
-                "category",
-                "videos"
-            ]
-        }
-    ]
-}
-```
+`GET /{SECRET_KEY}/feed` returns a JSON array of galleries. The formal JSON Schema lives in [`schemas/video-gallery-feed-schema.json`](schemas/video-gallery-feed-schema.json). Video `url` and `thumbnail` values are signed URLs valid for 24 hours; `thumbnail` is omitted when a video has none.
 
 ### Feed Example
 
 This is an example video feed. The URL and thumbnail values are just placeholders.
 
-```
+```json
 [
     {
-        "name": "Video Group 1",
+        "name": "Gallery 1",
         "category": "Category 1",
         "videos": [
             {
@@ -136,13 +89,12 @@ This is an example video feed. The URL and thumbnail values are just placeholder
         ]
     },
     {
-        "name": "Video Group 2",
+        "name": "Gallery 2",
         "category": "Category 2",
         "videos": [
             {
                 "name": "Demo Video 2",
-                "url": "https://domain.tld/video-2.mp4",
-                "thumbnail": null
+                "url": "https://domain.tld/video-2.mp4"
             }
         ]
     }
@@ -156,33 +108,44 @@ This tvOS application is compatible with this video feed
 
 ## Code Structure
 
-The project follows a standard Go application structure:
-
 ```
 .
-├── api/              # API documentation and test requests
-├── assets/           # Frontend assets
-│   ├── scss/        # SASS stylesheets
-│   └── templates/   # Pug templates
-├── build/           # Build and deployment files (Dockerfile, etc.)
-├── cmd/             # CLI command implementations
-├── config/          # Configuration files
-├── docs/            # Project documentation
-├── pkg/             # Go packages
-│   ├── config/      # Configuration management
-│   ├── handlers/    # HTTP request handlers
-│   ├── models/      # Data models
-│   └── services/    # Business logic services
-├── public/          # Static web assets
-├── schemas/         # JSON schemas
-├── scripts/         # Build and automation scripts
-└── terraform/       # Infrastructure as code
+├── main.go                       # Entry point
+├── cmd/                          # Cobra CLI; serve_cmd.go wires dependencies and routes
+├── internal/
+│   ├── domain/gallery/           # Entities, bucket layout rules, and interfaces
+│   ├── application/              # Use cases: gallery listing/caching, thumbnails, posters
+│   └── infrastructure/
+│       ├── gcs/, r2/             # StorageRepository implementations
+│       ├── ffmpeg/               # Frame extraction and blank-frame detection
+│       └── tmdb/                 # Movie poster lookup
+├── pkg/
+│   ├── config/                   # Environment-variable configuration
+│   └── handlers/                 # HTTP handlers
+├── assets/                       # Pug templates and SCSS sources
+├── public/                       # Static files and compiled CSS
+├── schemas/                      # Feed JSON Schema
+├── build/                        # Dockerfile
+└── terraform/                    # Example infrastructure
 ```
 
-## Infrastructure
-Like I said in the summary, this application can run in Cloud Run for essentially no cost, and only needs a single Storage Bucket to function. Below I will describe the structure of those setups.
+## Development
 
-### Cloud Run
+Requires Go (see `go.mod`), Node.js (for the stylesheet), and `ffmpeg` on the `PATH` for thumbnail generation.
+
+```bash
+make frontend-build   # compile SCSS to public/styles.css
+make test             # go test ./...
+SECRET_KEY=dev BUCKET_NAME=your-bucket go run . serve
+```
+
+The server must run from the repository root, since it loads `assets/templates` and `public/` relative to the working directory. Command-line flags (`--secret-key`, `--bucket`, `--port`, `--storage-backend`) override the matching environment variables.
+
+## Deployment
+
+The application is a single container that needs only a storage bucket, so it runs well on serverless container platforms (e.g. Google Cloud Run or Cloudflare Containers) for essentially no cost.
+
+### Container Image
 
 The application is available as a Docker image at `ghcr.io/eveenendaal/video-gallery`. Available tags include:
 - `latest` - Most recent build from the master branch
@@ -190,14 +153,16 @@ The application is available as a Docker image at `ghcr.io/eveenendaal/video-gal
 - Major.minor tags (e.g., `2.0`) - Latest patch version in that series
 - Major version tags (e.g., `2`) - Latest minor version in that series
 
-To deploy to Cloud Run:
-1. Pull the Docker image from GitHub Container Registry or use it directly in Cloud Run
-2. Configure a service account with read access to your storage bucket
+To deploy:
+1. Run the image on your container platform of choice
+2. Give it credentials for your bucket (see [Storage Backends](#storage-backends)); the admin features need write access for thumbnails
 3. Set the following environment variables:
 
 **BUCKET_NAME** - The bucket with the video files. This is needed to access the bucket.
 
-**SECRET_KEY** - A unique string. This is used to prefix all galleries with a random string to prevent people from guessing the gallery url.
+**SECRET_KEY** - A long, random string. It prefixes the index, feed, and admin URLs and salts the per-gallery URLs, so treat it like a password.
+
+**PORT** (Optional) - Port to listen on. Defaults to `8080`.
 
 **TMDB_API_KEY** (Optional) - API key from The Movie Database (TMDb) for fetching movie posters. Required if you want to use the "Movie Poster" feature in the admin panel. Get a free API key at https://www.themoviedb.org/settings/api
 
@@ -253,9 +218,9 @@ You need to configure the environment variables listed above and set up default 
 The application assumes the Storage Bucket is stored as follows:
 
 * Category
-  * Group
-    * Video.vid
-    * Video.pic (optional)
+  * Gallery
+    * Video.ext (`.mp4`, `.m4v`, `.webm`, `.mov`, or `.avi`)
+    * Video.jpg (optional thumbnail; `.jpeg` and `.png` also work)
 
 Here's a real example
 
@@ -274,4 +239,4 @@ Here's a real example
     * Video of Alice 2.mp4
     * Video of Alice 3.mp4
 
-The code parses the bucket and creates a list of categories, groups, and videos. The code also looks for a thumbnail for each video. If a thumbnail is not found, the thumbnail url will be null.
+The code parses the bucket and creates a list of categories, galleries, and videos, pairing each video with the image that shares its name in the same folder. Objects at any other depth or with other extensions are ignored. The listing is cached for 5 minutes (admin changes clear the cache immediately).

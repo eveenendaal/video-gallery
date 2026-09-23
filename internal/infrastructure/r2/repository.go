@@ -1,13 +1,10 @@
 package r2
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -77,7 +74,7 @@ func (r *StorageRepository) DeleteObject(ctx context.Context, path string) error
 // DownloadObject downloads the remote object to the local destination path.
 // The destination must be an absolute path within the temp directory.
 func (r *StorageRepository) DownloadObject(ctx context.Context, remotePath, localPath string) error {
-	if err := validateLocalPath(localPath); err != nil {
+	if err := gallery.ValidateWorkPath(localPath); err != nil {
 		return err
 	}
 
@@ -87,18 +84,12 @@ func (r *StorageRepository) DownloadObject(ctx context.Context, remotePath, loca
 	}
 	defer f.Close()
 
-	// Only allow R2 object paths, not arbitrary HTTP URLs
-	if strings.HasPrefix(remotePath, "http") {
-		return fmt.Errorf("HTTP source paths are not allowed")
-	}
-
-	cleanRemote := strings.TrimPrefix(remotePath, "/")
 	out, err := r.client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(r.bucketName),
-		Key:    aws.String(cleanRemote),
+		Key:    aws.String(remotePath),
 	})
 	if err != nil {
-		return fmt.Errorf("GetObject(%q): %v", cleanRemote, err)
+		return fmt.Errorf("GetObject(%q): %v", remotePath, err)
 	}
 	defer out.Body.Close()
 
@@ -108,43 +99,25 @@ func (r *StorageRepository) DownloadObject(ctx context.Context, remotePath, loca
 	return nil
 }
 
-// UploadObject uploads the local file at srcPath to the given destination object path
+// UploadObject uploads the local JPEG at localPath to the given object path
 func (r *StorageRepository) UploadObject(ctx context.Context, localPath, remotePath string) error {
-	if err := validateLocalPath(localPath); err != nil {
+	if err := gallery.ValidateWorkPath(localPath); err != nil {
 		return err
 	}
 
-	data, err := os.ReadFile(localPath)
+	f, err := os.Open(localPath)
 	if err != nil {
-		return fmt.Errorf("os.ReadFile: %v", err)
+		return fmt.Errorf("os.Open: %v", err)
 	}
-
-	// Strip query strings and leading slashes from the destination
-	dst := strings.TrimPrefix(remotePath, "/")
-	if idx := strings.Index(dst, "?"); idx != -1 {
-		dst = dst[:idx]
-	}
+	defer f.Close()
 
 	if _, err := r.client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket:      aws.String(r.bucketName),
-		Key:         aws.String(dst),
-		Body:        bytes.NewReader(data),
+		Key:         aws.String(remotePath),
+		Body:        f,
 		ContentType: aws.String("image/jpeg"),
 	}); err != nil {
 		return fmt.Errorf("PutObject: %v", err)
-	}
-	return nil
-}
-
-// validateLocalPath ensures a path is absolute and within the designated temp directory
-func validateLocalPath(path string) error {
-	cleanPath := filepath.Clean(path)
-	if !filepath.IsAbs(cleanPath) {
-		return fmt.Errorf("path must be absolute: %s", path)
-	}
-	expectedDir := filepath.Clean(filepath.Join(os.TempDir(), "video-gallery-thumbnails"))
-	if cleanPath != expectedDir && !strings.HasPrefix(cleanPath, expectedDir+string(os.PathSeparator)) {
-		return fmt.Errorf("invalid path: must be within temp directory")
 	}
 	return nil
 }

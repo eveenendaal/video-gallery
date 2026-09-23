@@ -63,27 +63,10 @@ func serveWebsite(cfg *config.Config) error {
 	galleryHandlers := handlers.NewGalleryHandlers(gallerySvc)
 	adminHandlers := handlers.NewAdminHandlers(gallerySvc, thumbnailSvc, posterSvc, cfg.SecretKey)
 
-	// --- Routes ---
-	mux := http.NewServeMux()
-	fileServer := http.FileServer(http.Dir("./public"))
-	mux.Handle("/", fileServer)
-	mux.HandleFunc("/gallery/", galleryHandlers.PageHandler)
-	mux.HandleFunc(fmt.Sprintf("/%s/index", cfg.SecretKey), galleryHandlers.IndexHandler)
-	mux.HandleFunc(fmt.Sprintf("/%s/feed", cfg.SecretKey), galleryHandlers.FeedHandler)
-
-	// Admin routes — all protected by the secret key
-	mux.HandleFunc(fmt.Sprintf("/%s/admin", cfg.SecretKey), adminHandlers.AdminHandler)
-	mux.HandleFunc(fmt.Sprintf("/%s/admin/api/generate-thumbnail", cfg.SecretKey), adminHandlers.GenerateThumbnailHandler)
-	mux.HandleFunc(fmt.Sprintf("/%s/admin/api/clear-thumbnail", cfg.SecretKey), adminHandlers.ClearThumbnailHandler)
-	mux.HandleFunc(fmt.Sprintf("/%s/admin/api/bulk-generate-thumbnails", cfg.SecretKey), adminHandlers.BulkGenerateThumbnailsHandler)
-	mux.HandleFunc(fmt.Sprintf("/%s/admin/api/bulk-clear-thumbnails", cfg.SecretKey), adminHandlers.BulkClearThumbnailsHandler)
-	mux.HandleFunc(fmt.Sprintf("/%s/admin/api/fetch-movie-poster", cfg.SecretKey), adminHandlers.FetchMoviePosterHandler)
-	mux.HandleFunc(fmt.Sprintf("/%s/admin/api/search-movie-poster", cfg.SecretKey), adminHandlers.SearchMoviePosterHandler)
-
 	// No WriteTimeout: the admin SSE endpoints hold long-lived streaming responses.
 	server := &http.Server{
 		Addr:              cfg.ServerAddress(),
-		Handler:           securityHeaders(mux),
+		Handler:           securityHeaders(newRouter(cfg.SecretKey, galleryHandlers, adminHandlers)),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		IdleTimeout:       120 * time.Second,
@@ -91,6 +74,28 @@ func serveWebsite(cfg *config.Config) error {
 
 	cfg.PrintServerStartMessage()
 	return server.ListenAndServe()
+}
+
+// newRouter registers all routes. Everything except static files and the
+// unguessable per-gallery pages lives under the secret key prefix.
+func newRouter(secretKey string, pages *handlers.GalleryHandlers, admin *handlers.AdminHandlers) *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.Handle("/", http.FileServer(http.Dir("./public")))
+	mux.HandleFunc("/gallery/", pages.PageHandler)
+
+	secret := func(path string, h http.HandlerFunc) {
+		mux.HandleFunc("/"+secretKey+path, h)
+	}
+	secret("/index", pages.IndexHandler)
+	secret("/feed", pages.FeedHandler)
+	secret("/admin", admin.AdminHandler)
+	secret("/admin/api/generate-thumbnail", admin.GenerateThumbnailHandler)
+	secret("/admin/api/clear-thumbnail", admin.ClearThumbnailHandler)
+	secret("/admin/api/bulk-generate-thumbnails", admin.BulkGenerateThumbnailsHandler)
+	secret("/admin/api/bulk-clear-thumbnails", admin.BulkClearThumbnailsHandler)
+	secret("/admin/api/fetch-movie-poster", admin.FetchMoviePosterHandler)
+	secret("/admin/api/search-movie-poster", admin.SearchMoviePosterHandler)
+	return mux
 }
 
 // newStorageRepository constructs the StorageRepository implementation selected by cfg.StorageBackend

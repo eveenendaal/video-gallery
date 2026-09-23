@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"cloud.google.com/go/storage"
@@ -74,7 +72,7 @@ func (r *StorageRepository) DeleteObject(ctx context.Context, path string) error
 // DownloadObject downloads the remote object to the local destination path.
 // The destination must be an absolute path within the temp directory.
 func (r *StorageRepository) DownloadObject(ctx context.Context, remotePath, localPath string) error {
-	if err := validateLocalPath(localPath); err != nil {
+	if err := gallery.ValidateWorkPath(localPath); err != nil {
 		return err
 	}
 
@@ -84,15 +82,9 @@ func (r *StorageRepository) DownloadObject(ctx context.Context, remotePath, loca
 	}
 	defer f.Close()
 
-	// Only allow GCS object paths, not arbitrary HTTP URLs
-	if strings.HasPrefix(remotePath, "http") {
-		return fmt.Errorf("HTTP source paths are not allowed")
-	}
-
-	cleanRemote := strings.TrimPrefix(remotePath, "/")
-	reader, err := r.client.Bucket(r.bucketName).Object(cleanRemote).NewReader(ctx)
+	reader, err := r.client.Bucket(r.bucketName).Object(remotePath).NewReader(ctx)
 	if err != nil {
-		return fmt.Errorf("Object(%q).NewReader: %v", cleanRemote, err)
+		return fmt.Errorf("Object(%q).NewReader: %v", remotePath, err)
 	}
 	defer reader.Close()
 
@@ -102,44 +94,30 @@ func (r *StorageRepository) DownloadObject(ctx context.Context, remotePath, loca
 	return nil
 }
 
-// UploadObject uploads the local file at srcPath to the given destination object path
+// UploadObject uploads the local JPEG at localPath to the given object path
 func (r *StorageRepository) UploadObject(ctx context.Context, localPath, remotePath string) error {
-	if err := validateLocalPath(localPath); err != nil {
+	if err := gallery.ValidateWorkPath(localPath); err != nil {
 		return err
 	}
 
-	data, err := os.ReadFile(localPath)
+	f, err := os.Open(localPath)
 	if err != nil {
-		return fmt.Errorf("os.ReadFile: %v", err)
+		return fmt.Errorf("os.Open: %v", err)
 	}
+	defer f.Close()
 
-	// Strip query strings and leading slashes from the destination
-	dst := strings.TrimPrefix(remotePath, "/")
-	if idx := strings.Index(dst, "?"); idx != -1 {
-		dst = dst[:idx]
-	}
+	// Cancelling ctx aborts the upload, so a failed copy never commits a partial object.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
-	writer := r.client.Bucket(r.bucketName).Object(dst).NewWriter(ctx)
+	writer := r.client.Bucket(r.bucketName).Object(remotePath).NewWriter(ctx)
 	writer.ContentType = "image/jpeg"
 
-	if _, err := writer.Write(data); err != nil {
-		return fmt.Errorf("writer.Write: %v", err)
+	if _, err := io.Copy(writer, f); err != nil {
+		return fmt.Errorf("io.Copy: %v", err)
 	}
 	if err := writer.Close(); err != nil {
 		return fmt.Errorf("writer.Close: %v", err)
-	}
-	return nil
-}
-
-// validateLocalPath ensures a path is absolute and within the designated temp directory
-func validateLocalPath(path string) error {
-	cleanPath := filepath.Clean(path)
-	if !filepath.IsAbs(cleanPath) {
-		return fmt.Errorf("path must be absolute: %s", path)
-	}
-	expectedDir := filepath.Clean(filepath.Join(os.TempDir(), "video-gallery-thumbnails"))
-	if cleanPath != expectedDir && !strings.HasPrefix(cleanPath, expectedDir+string(os.PathSeparator)) {
-		return fmt.Errorf("invalid path: must be within temp directory")
 	}
 	return nil
 }

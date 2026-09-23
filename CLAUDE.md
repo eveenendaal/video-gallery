@@ -10,16 +10,21 @@ in-memory for 5 minutes.
 
 ```bash
 make build            # go build ./...
-make frontend-build    # npm install + npm run build (SCSS -> public/styles.css)
-go test ./...
+make test             # go test ./...
+make frontend-build   # npm install + npm run build (SCSS -> public/styles.css)
 ```
+
+Tests use in-memory fakes of the domain interfaces (see
+`internal/application/fakes_test.go`) — no cloud credentials needed. The
+handler tests `chdir` to the repo root because templates load from
+`./assets/templates`. `TestExtractFrame` skips when `ffmpeg` isn't installed.
 
 ## Architecture
 
 DDD-ish layout, seamed around `internal/domain/gallery/repository.go`'s
 `StorageRepository` interface:
 
-- `internal/domain/gallery/` — entities (`Video`, `Gallery`, `Category`) and interface contracts (`StorageRepository`, `VideoProcessor`, `MoviePosterClient`)
+- `internal/domain/gallery/` — entities (`Video`, `Gallery`, `Category`), interface contracts (`StorageRepository`, `VideoProcessor`, `MoviePosterClient`), and the bucket-layout rules in `media.go` (supported extensions, `ParseObjectPath`, `ThumbnailPathFor`, and the `WorkDir` temp directory repositories are confined to)
 - `internal/application/` — use-case services (`GalleryService`, `ThumbnailService`, `PosterService`)
 - `internal/infrastructure/gcs/`, `internal/infrastructure/r2/` — the two `StorageRepository` implementations (see Storage Backends below)
 - `internal/infrastructure/ffmpeg/`, `internal/infrastructure/tmdb/` — thumbnail extraction, movie poster lookup

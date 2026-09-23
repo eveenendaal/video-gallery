@@ -1,7 +1,10 @@
-.PHONY: build frontend-build clean
+.PHONY: build test frontend-build clean
 
 build:
 	go build ./...
+
+test:
+	go test ./...
 
 frontend-build:
 	npm install

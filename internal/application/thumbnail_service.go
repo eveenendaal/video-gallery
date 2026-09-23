@@ -6,13 +6,19 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"video-gallery/internal/domain/gallery"
 )
 
 // ProgressCallback is a function that receives step-name and percentage progress updates
 type ProgressCallback func(step string, progress int)
+
+// report invokes cb if it is set
+func (cb ProgressCallback) report(step string, progress int) {
+	if cb != nil {
+		cb(step, progress)
+	}
+}
 
 // ThumbnailService handles thumbnail generation and management
 type ThumbnailService struct {
@@ -36,66 +42,47 @@ func NewThumbnailService(
 
 // GenerateThumbnail generates a thumbnail for a specific video with progress updates
 func (s *ThumbnailService) GenerateThumbnail(videoPath string, timeMs int, progressCb ProgressCallback) error {
-	send := func(step string, progress int) {
-		if progressCb != nil {
-			progressCb(step, progress)
-		}
+	if err := s.generate(context.Background(), videoPath, timeMs, progressCb); err != nil {
+		return err
 	}
+	progressCb.report("Clearing cache", 95)
+	s.galleryService.InvalidateCache()
+	progressCb.report("Complete", 100)
+	return nil
+}
 
-	send("Setting up directories", 10)
-	outputDir := filepath.Join(os.TempDir(), "video-gallery-thumbnails")
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		return fmt.Errorf("failed to create output directory: %v", err)
+// generate downloads videoPath, extracts and validates a frame at timeMs, and
+// uploads it as the video's .jpg thumbnail (replacing any existing one).
+func (s *ThumbnailService) generate(ctx context.Context, videoPath string, timeMs int, progressCb ProgressCallback) error {
+	progressCb.report("Downloading video", 30)
+	tmpVideo, err := newTempFile(filepath.Ext(videoPath))
+	if err != nil {
+		return err
 	}
-
-	// Derive thumbnail storage path from video path
-	ext := filepath.Ext(videoPath)
-	basePath := videoPath[:len(videoPath)-len(ext)]
-	thumbnailPath := basePath + ".jpg"
-
-	videoBaseName := safeFilename(videoPath)
-	thumbnailBaseName := safeFilename(thumbnailPath)
-
-	send("Clearing old thumbnail", 20)
-	// Best-effort delete of any existing thumbnail; ignore errors
-	_ = s.repo.DeleteObject(context.Background(), thumbnailPath)
-
-	send("Downloading video", 30)
-	tmpVideoPath := filepath.Join(outputDir, videoBaseName)
-	if err := s.repo.DownloadObject(context.Background(), videoPath, tmpVideoPath); err != nil {
+	defer removeTempFile(tmpVideo)
+	if err := s.repo.DownloadObject(ctx, videoPath, tmpVideo); err != nil {
 		return fmt.Errorf("error downloading video: %v", err)
 	}
-	defer func() {
-		if err := os.Remove(tmpVideoPath); err != nil {
-			log.Printf("Warning: failed to remove temp file: %v", err)
-		}
-	}()
 
-	send("Generating thumbnail", 60)
-	tmpThumbnailPath := filepath.Join(outputDir, thumbnailBaseName)
-	if err := s.processor.ExtractFrame(tmpVideoPath, tmpThumbnailPath, timeMs); err != nil {
+	progressCb.report("Generating thumbnail", 60)
+	tmpThumb, err := newTempFile(".jpg")
+	if err != nil {
+		return err
+	}
+	defer removeTempFile(tmpThumb)
+	if err := s.processor.ExtractFrame(tmpVideo, tmpThumb, timeMs); err != nil {
 		return fmt.Errorf("error creating thumbnail: %v", err)
 	}
-	defer func() {
-		if err := os.Remove(tmpThumbnailPath); err != nil {
-			log.Printf("Warning: failed to remove temp file: %v", err)
-		}
-	}()
 
-	send("Validating thumbnail", 80)
-	if err := s.processor.ValidateImage(tmpThumbnailPath); err != nil {
+	progressCb.report("Validating thumbnail", 80)
+	if err := s.processor.ValidateImage(tmpThumb); err != nil {
 		return fmt.Errorf("thumbnail validation failed: %v", err)
 	}
 
-	send("Uploading thumbnail", 85)
-	if err := s.repo.UploadObject(context.Background(), tmpThumbnailPath, thumbnailPath); err != nil {
+	progressCb.report("Uploading thumbnail", 85)
+	if err := s.repo.UploadObject(ctx, tmpThumb, gallery.ThumbnailPathFor(videoPath)); err != nil {
 		return fmt.Errorf("error uploading thumbnail: %v", err)
 	}
-
-	send("Clearing cache", 95)
-	s.galleryService.InvalidateCache()
-
-	send("Complete", 100)
 	return nil
 }
 
@@ -110,108 +97,38 @@ func (s *ThumbnailService) ClearThumbnail(thumbnailPath string) error {
 
 // BulkGenerateThumbnails generates thumbnails for all videos that are missing one.
 // When force is true, existing thumbnails are regenerated.
-// Returns (processed, errors, error).
-func (s *ThumbnailService) BulkGenerateThumbnails(timeMs int, force bool) (int, int, error) {
-	outputDir := filepath.Join(os.TempDir(), "video-gallery-thumbnails")
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		return 0, 0, fmt.Errorf("failed to create output directory: %v", err)
-	}
-
+// Returns the number of thumbnails generated and the number of failures.
+func (s *ThumbnailService) BulkGenerateThumbnails(timeMs int, force bool) (processed, failed int, err error) {
 	ctx := context.Background()
 	objects, err := s.repo.ListObjects(ctx)
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to list storage objects: %v", err)
 	}
 
-	videoExtensions := []string{".mp4", ".m4v", ".webm", ".mov", ".avi"}
-	imageExtensions := []string{".jpg", ".jpeg", ".png"}
-
-	// First pass: collect which base paths already have a thumbnail
-	thumbnailsMap := make(map[string]bool)
+	hasThumbnail := make(map[string]bool)
 	for _, obj := range objects {
-		parts := strings.Split(obj.Name, "/")
-		if len(parts) != 3 || parts[2] == "" {
-			continue
-		}
-		filename := parts[2]
-		for _, ext := range imageExtensions {
-			if strings.HasSuffix(filename, ext) {
-				thumbnailsMap[obj.Name[:len(obj.Name)-len(filepath.Ext(obj.Name))]] = true
-				break
-			}
+		if _, ok := gallery.ParseObjectPath(obj.Name); ok && gallery.IsImage(obj.Name) {
+			hasThumbnail[gallery.StripExt(obj.Name)] = true
 		}
 	}
 
-	totalProcessed := 0
-	totalErrors := 0
-
-	// Second pass: generate thumbnails for videos that need one
 	for _, obj := range objects {
-		parts := strings.Split(obj.Name, "/")
-		if len(parts) != 3 || parts[2] == "" {
+		if _, ok := gallery.ParseObjectPath(obj.Name); !ok || !gallery.IsVideo(obj.Name) {
 			continue
 		}
-
-		filename := parts[2]
-		isVideo := false
-		for _, ext := range videoExtensions {
-			if strings.HasSuffix(filename, ext) {
-				isVideo = true
-				break
-			}
-		}
-		if !isVideo {
+		if hasThumbnail[gallery.StripExt(obj.Name)] && !force {
 			continue
 		}
-
-		videoPath := obj.Name
-		basePath := videoPath[:len(videoPath)-len(filepath.Ext(videoPath))]
-		if thumbnailsMap[basePath] && !force {
+		if err := s.generate(ctx, obj.Name, timeMs, nil); err != nil {
+			log.Printf("Thumbnail generation failed for %s: %v", obj.Name, err)
+			failed++
 			continue
 		}
-
-		thumbnailPath := basePath + ".jpg"
-		videoBaseName := safeFilename(videoPath)
-		thumbnailBaseName := safeFilename(thumbnailPath)
-
-		tmpVideoPath := filepath.Join(outputDir, videoBaseName)
-		if err := s.repo.DownloadObject(ctx, videoPath, tmpVideoPath); err != nil {
-			log.Printf("Error downloading video %s: %v", videoPath, err)
-			totalErrors++
-			continue
-		}
-
-		tmpThumbnailPath := filepath.Join(outputDir, thumbnailBaseName)
-		if err := s.processor.ExtractFrame(tmpVideoPath, tmpThumbnailPath, timeMs); err != nil {
-			log.Printf("Error creating thumbnail for %s: %v", videoPath, err)
-			os.Remove(tmpVideoPath)
-			totalErrors++
-			continue
-		}
-
-		if err := s.processor.ValidateImage(tmpThumbnailPath); err != nil {
-			log.Printf("Thumbnail validation failed for %s: %v", videoPath, err)
-			os.Remove(tmpVideoPath)
-			os.Remove(tmpThumbnailPath)
-			totalErrors++
-			continue
-		}
-
-		if err := s.repo.UploadObject(ctx, tmpThumbnailPath, thumbnailPath); err != nil {
-			log.Printf("Error uploading thumbnail for %s: %v", videoPath, err)
-			os.Remove(tmpVideoPath)
-			os.Remove(tmpThumbnailPath)
-			totalErrors++
-			continue
-		}
-
-		totalProcessed++
-		os.Remove(tmpVideoPath)
-		os.Remove(tmpThumbnailPath)
+		processed++
 	}
 
 	s.galleryService.InvalidateCache()
-	return totalProcessed, totalErrors, nil
+	return processed, failed, nil
 }
 
 // BulkClearThumbnails removes all thumbnails from storage
@@ -222,28 +139,39 @@ func (s *ThumbnailService) BulkClearThumbnails() (int, error) {
 		return 0, fmt.Errorf("failed to list storage objects: %v", err)
 	}
 
-	imageExtensions := []string{".jpg", ".jpeg", ".png"}
-	totalDeleted := 0
-
+	deleted := 0
 	for _, obj := range objects {
-		parts := strings.Split(obj.Name, "/")
-		if len(parts) != 3 || parts[2] == "" {
+		if _, ok := gallery.ParseObjectPath(obj.Name); !ok || !gallery.IsImage(obj.Name) {
 			continue
 		}
-
-		filename := parts[2]
-		for _, ext := range imageExtensions {
-			if strings.HasSuffix(filename, ext) {
-				if err := s.repo.DeleteObject(ctx, obj.Name); err != nil {
-					log.Printf("Error deleting thumbnail %s: %v", obj.Name, err)
-				} else {
-					totalDeleted++
-				}
-				break
-			}
+		if err := s.repo.DeleteObject(ctx, obj.Name); err != nil {
+			log.Printf("Error deleting thumbnail %s: %v", obj.Name, err)
+			continue
 		}
+		deleted++
 	}
 
 	s.galleryService.InvalidateCache()
-	return totalDeleted, nil
+	return deleted, nil
+}
+
+// newTempFile reserves a uniquely named empty file in the work directory, so
+// concurrent operations on same-named videos in different galleries never
+// share a temp path.
+func newTempFile(ext string) (string, error) {
+	if err := os.MkdirAll(gallery.WorkDir(), 0o755); err != nil {
+		return "", fmt.Errorf("failed to create work directory: %v", err)
+	}
+	f, err := os.CreateTemp(gallery.WorkDir(), "*"+ext)
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp file: %v", err)
+	}
+	f.Close()
+	return f.Name(), nil
+}
+
+func removeTempFile(path string) {
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		log.Printf("Warning: failed to remove temp file: %v", err)
+	}
 }

@@ -29,20 +29,13 @@ func NewProcessor() *Processor {
 // ExtractFrame extracts a single video frame at timeMs milliseconds into the video
 // and saves it as a JPEG image at thumbnailPath.
 func (p *Processor) ExtractFrame(videoPath, thumbnailPath string, timeMs int) error {
-	if err := checkFFmpeg(); err != nil {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
 		return fmt.Errorf("FFmpeg is required but not found: %v", err)
 	}
 
-	totalSeconds := timeMs / 1000
-	milliseconds := timeMs % 1000
-	hours := totalSeconds / 3600
-	minutes := (totalSeconds % 3600) / 60
-	seconds := totalSeconds % 60
-	timeStr := fmt.Sprintf("%02d:%02d:%02d.%03d", hours, minutes, seconds, milliseconds)
-
 	cmd := exec.Command(
 		"ffmpeg",
-		"-ss", timeStr,
+		"-ss", formatTimestamp(timeMs),
 		"-i", videoPath,
 		"-vf", "thumbnail",
 		"-frames:v", "1",
@@ -63,9 +56,7 @@ func (p *Processor) ExtractFrame(videoPath, thumbnailPath string, timeMs int) er
 // ValidateImage checks that the image at imagePath is not a solid-colour frame
 // (which would indicate that FFmpeg captured a blank section of the video).
 func (p *Processor) ValidateImage(imagePath string) error {
-	cleanPath := filepath.Clean(imagePath)
-
-	f, err := os.Open(cleanPath)
+	f, err := os.Open(filepath.Clean(imagePath))
 	if err != nil {
 		return fmt.Errorf("failed to open image: %v", err)
 	}
@@ -76,19 +67,10 @@ func (p *Processor) ValidateImage(imagePath string) error {
 		return fmt.Errorf("failed to decode image: %v", err)
 	}
 
+	// Sample a ~10x10 grid of pixels
 	bounds := img.Bounds()
-	width := bounds.Dx()
-	height := bounds.Dy()
-
-	sampleSize := 10
-	stepX := width / sampleSize
-	stepY := height / sampleSize
-	if stepX == 0 {
-		stepX = 1
-	}
-	if stepY == 0 {
-		stepY = 1
-	}
+	stepX := max(bounds.Dx()/10, 1)
+	stepY := max(bounds.Dy()/10, 1)
 
 	firstColor := img.At(bounds.Min.X, bounds.Min.Y)
 	r1, g1, b1, a1 := firstColor.RGBA()
@@ -116,12 +98,10 @@ func (p *Processor) ValidateImage(imagePath string) error {
 	return nil
 }
 
-func checkFFmpeg() error {
-	cmd := exec.Command("ffmpeg", "-version")
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("ffmpeg not found or not working: %v", err)
-	}
-	return nil
+// formatTimestamp renders a millisecond offset as an FFmpeg HH:MM:SS.mmm timestamp
+func formatTimestamp(timeMs int) string {
+	return fmt.Sprintf("%02d:%02d:%02d.%03d",
+		timeMs/3_600_000, timeMs/60_000%60, timeMs/1000%60, timeMs%1000)
 }
 
 func absDiff(a, b uint32) uint32 {

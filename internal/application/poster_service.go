@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"video-gallery/internal/domain/gallery"
@@ -51,34 +49,25 @@ func NewPosterService(
 // from TMDb API responses, so callers can never make the server fetch an
 // arbitrary URL (SSRF).
 func (s *PosterService) FetchMoviePoster(videoPath, movieTitle string, movieID int, progressCb ProgressCallback) error {
-	send := func(step string, progress int) {
-		if progressCb != nil {
-			progressCb(step, progress)
-		}
-	}
-
+	ctx := context.Background()
 	var movie gallery.MovieResult
 
 	if movieID > 0 {
-		send("Fetching selected movie", 15)
-
+		progressCb.report("Fetching selected movie", 15)
 		var err error
-		movie, err = s.client.GetMovie(context.Background(), movieID)
-		if err != nil {
+		if movie, err = s.client.GetMovie(ctx, movieID); err != nil {
 			return fmt.Errorf("failed to fetch movie: %v", err)
 		}
 	} else {
-		send("Searching for movie", 15)
-
+		progressCb.report("Searching for movie", 15)
 		cleanTitle := cleanMovieTitle(movieTitle)
-		results, err := s.client.SearchMovies(context.Background(), cleanTitle)
+		results, err := s.client.SearchMovies(ctx, cleanTitle)
 		if err != nil {
 			return fmt.Errorf("failed to search movie: %v", err)
 		}
 		if len(results) == 0 {
 			return fmt.Errorf("no movie found for title: %s", movieTitle)
 		}
-
 		movie = findBestMatch(results, cleanTitle)
 	}
 
@@ -86,39 +75,25 @@ func (s *PosterService) FetchMoviePoster(videoPath, movieTitle string, movieID i
 		return fmt.Errorf("no poster available for: %s", movieTitle)
 	}
 
-	actualPosterURL := tmdbImageBaseW500 + *movie.PosterPath
-
-	send("Downloading poster", 40)
-
-	outputDir := filepath.Join(os.TempDir(), "video-gallery-thumbnails")
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		return fmt.Errorf("failed to create output directory: %v", err)
+	progressCb.report("Downloading poster", 40)
+	tmpPoster, err := newTempFile(".jpg")
+	if err != nil {
+		return err
 	}
-
-	ext := filepath.Ext(videoPath)
-	basePath := videoPath[:len(videoPath)-len(ext)]
-	thumbnailPath := basePath + ".jpg"
-
-	tmpThumbnailPath := filepath.Join(outputDir, safeFilename(thumbnailPath))
-
-	if err := s.client.DownloadImage(context.Background(), actualPosterURL, tmpThumbnailPath); err != nil {
+	defer removeTempFile(tmpPoster)
+	if err := s.client.DownloadImage(ctx, tmdbImageBaseW500+*movie.PosterPath, tmpPoster); err != nil {
 		return fmt.Errorf("failed to download poster: %v", err)
 	}
-	defer os.Remove(tmpThumbnailPath)
 
-	send("Uploading to storage", 85)
-
-	// Remove any existing thumbnail before uploading the new one
-	_ = s.repo.DeleteObject(context.Background(), thumbnailPath)
-
-	if err := s.repo.UploadObject(context.Background(), tmpThumbnailPath, thumbnailPath); err != nil {
+	progressCb.report("Uploading to storage", 85)
+	if err := s.repo.UploadObject(ctx, tmpPoster, gallery.ThumbnailPathFor(videoPath)); err != nil {
 		return fmt.Errorf("error uploading poster: %v", err)
 	}
 
-	send("Clearing cache", 95)
+	progressCb.report("Clearing cache", 95)
 	s.galleryService.InvalidateCache()
 
-	send("Complete", 100)
+	progressCb.report("Complete", 100)
 	log.Printf("Successfully fetched poster for: %s", movieTitle)
 	return nil
 }
@@ -131,17 +106,18 @@ func (s *PosterService) SearchMoviePoster(movieTitle string) ([]MoviePosterResul
 		return nil, fmt.Errorf("failed to search movie: %v", err)
 	}
 
-	var posters []MoviePosterResult
+	posters := []MoviePosterResult{}
 	for _, movie := range results {
-		if movie.PosterPath != nil && *movie.PosterPath != "" {
-			posters = append(posters, MoviePosterResult{
-				ID:           movie.ID,
-				Title:        movie.Title,
-				Year:         extractYear(movie.ReleaseDate),
-				PosterURL:    tmdbImageBaseW500 + *movie.PosterPath,
-				ThumbnailURL: tmdbImageBaseW185 + *movie.PosterPath,
-			})
+		if movie.PosterPath == nil || *movie.PosterPath == "" {
+			continue
 		}
+		posters = append(posters, MoviePosterResult{
+			ID:           movie.ID,
+			Title:        movie.Title,
+			Year:         extractYear(movie.ReleaseDate),
+			PosterURL:    tmdbImageBaseW500 + *movie.PosterPath,
+			ThumbnailURL: tmdbImageBaseW185 + *movie.PosterPath,
+		})
 	}
 	return posters, nil
 }
@@ -150,10 +126,7 @@ func (s *PosterService) SearchMoviePoster(movieTitle string) ([]MoviePosterResul
 // searches return better results.  E.g. "Empire Strikes Back (Despecialized v2.0)"
 // becomes "Empire Strikes Back".
 func cleanMovieTitle(title string) string {
-	if idx := strings.Index(title, "("); idx != -1 {
-		title = title[:idx]
-	}
-	if idx := strings.Index(title, "["); idx != -1 {
+	if idx := strings.IndexAny(title, "(["); idx != -1 {
 		title = title[:idx]
 	}
 	return strings.TrimSpace(title)

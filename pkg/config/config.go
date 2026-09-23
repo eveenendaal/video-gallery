@@ -37,54 +37,55 @@ var ErrR2SecretAccessKeyNotSet = errors.New("R2_SECRET_ACCESS_KEY environment va
 
 // Load loads configuration from environment variables
 func Load() (*Config, error) {
-	secretKey := os.Getenv("SECRET_KEY")
-	if secretKey == "" {
-		return nil, ErrSecretKeyNotSet
-	}
-
-	bucketName := os.Getenv("BUCKET_NAME")
-	if bucketName == "" {
-		return nil, ErrBucketNameNotSet
-	}
-
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-
-	tmdbAPIKey := os.Getenv("TMDB_API_KEY")
-
-	storageBackend := os.Getenv("STORAGE_BACKEND")
-	if storageBackend == "" {
-		storageBackend = "gcs"
-	}
-
 	cfg := &Config{
-		SecretKey:      secretKey,
-		BucketName:     bucketName,
-		Port:           port,
-		TMDbAPIKey:     tmdbAPIKey,
-		StorageBackend: storageBackend,
+		SecretKey:      os.Getenv("SECRET_KEY"),
+		BucketName:     os.Getenv("BUCKET_NAME"),
+		Port:           getEnvOrDefault("PORT", "8080"),
+		TMDbAPIKey:     os.Getenv("TMDB_API_KEY"),
+		StorageBackend: getEnvOrDefault("STORAGE_BACKEND", "gcs"),
 	}
-
-	if storageBackend == "r2" {
+	if cfg.StorageBackend == "r2" {
 		cfg.R2AccountID = os.Getenv("R2_ACCOUNT_ID")
-		if cfg.R2AccountID == "" {
-			return nil, ErrR2AccountIDNotSet
-		}
-
 		cfg.R2AccessKeyID = os.Getenv("R2_ACCESS_KEY_ID")
-		if cfg.R2AccessKeyID == "" {
-			return nil, ErrR2AccessKeyIDNotSet
-		}
-
 		cfg.R2SecretAccessKey = os.Getenv("R2_SECRET_ACCESS_KEY")
-		if cfg.R2SecretAccessKey == "" {
-			return nil, ErrR2SecretAccessKeyNotSet
-		}
 	}
 
+	if err := cfg.validate(); err != nil {
+		return nil, err
+	}
 	return cfg, nil
+}
+
+// validate returns the error for the first required setting that is missing
+func (c *Config) validate() error {
+	type setting struct {
+		value string
+		err   error
+	}
+	required := []setting{
+		{c.SecretKey, ErrSecretKeyNotSet},
+		{c.BucketName, ErrBucketNameNotSet},
+	}
+	if c.StorageBackend == "r2" {
+		required = append(required,
+			setting{c.R2AccountID, ErrR2AccountIDNotSet},
+			setting{c.R2AccessKeyID, ErrR2AccessKeyIDNotSet},
+			setting{c.R2SecretAccessKey, ErrR2SecretAccessKeyNotSet},
+		)
+	}
+	for _, s := range required {
+		if s.value == "" {
+			return s.err
+		}
+	}
+	return nil
+}
+
+func getEnvOrDefault(name, fallback string) string {
+	if value := os.Getenv(name); value != "" {
+		return value
+	}
+	return fallback
 }
 
 // ServerAddress returns the server address with port

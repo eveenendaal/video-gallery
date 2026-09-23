@@ -1,8 +1,10 @@
 package cmd
 
 import (
-	"github.com/spf13/cobra"
 	"os"
+
+	"github.com/spf13/cobra"
+
 	"video-gallery/pkg/config"
 )
 
@@ -22,7 +24,7 @@ func NewRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:     "video-gallery",
 		Short:   "Video Gallery - web server for video galleries",
-		Long:    `Video Gallery is a web server that displays video galleries stored in Google Cloud Storage.`,
+		Long:    `Video Gallery is a web server that displays video galleries stored in a Google Cloud Storage or Cloudflare R2 bucket.`,
 		Version: Version,
 	}
 
@@ -40,25 +42,19 @@ func NewRootCmd() *cobra.Command {
 	return rootCmd
 }
 
-// LoadConfig loads configuration with respect to command line flags
+// LoadConfig loads configuration from environment variables, with any
+// command line flags that were set taking precedence
 func LoadConfig() (*config.Config, error) {
-	// Set environment variables from flags if provided
-	if secretKey != "" {
-		os.Setenv("SECRET_KEY", secretKey)
+	overrides := map[string]string{
+		"SECRET_KEY":      secretKey,
+		"BUCKET_NAME":     bucketName,
+		"PORT":            portNumber,
+		"STORAGE_BACKEND": storageBackend,
 	}
-
-	if bucketName != "" {
-		os.Setenv("BUCKET_NAME", bucketName)
+	for name, value := range overrides {
+		if value != "" {
+			os.Setenv(name, value)
+		}
 	}
-
-	if portNumber != "" {
-		os.Setenv("PORT", portNumber)
-	}
-
-	if storageBackend != "" {
-		os.Setenv("STORAGE_BACKEND", storageBackend)
-	}
-
-	// Load configuration from environment variables (potentially set above)
 	return config.Load()
 }

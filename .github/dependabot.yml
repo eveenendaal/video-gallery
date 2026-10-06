@@ -13,6 +13,10 @@ updates:
       interval: monthly
       time: "02:00"
       timezone: "Europe/Amsterdam"
+    groups:
+      gomod:
+        patterns:
+          - "*"
   - package-ecosystem: "github-actions"
     directory: "/"
     assignees:
@@ -21,6 +25,10 @@ updates:
       interval: monthly
       time: "02:00"
       timezone: "Europe/Amsterdam"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
   - package-ecosystem: "docker"
     directory: "/"
     assignees:
@@ -29,6 +37,10 @@ updates:
       interval: monthly
       time: "02:00"
       timezone: "Europe/Amsterdam"
+    groups:
+      docker:
+        patterns:
+          - "*"
   - package-ecosystem: "devcontainers"
     directory: "/"
     assignees:
@@ -37,6 +49,10 @@ updates:
       interval: monthly
       time: "02:00"
       timezone: "Europe/Amsterdam"
+    groups:
+      devcontainers:
+        patterns:
+          - "*"
   - package-ecosystem: "npm"
     directory: "/"
     assignees:
@@ -45,3 +61,7 @@ updates:
       interval: monthly
       time: "02:00"
       timezone: "Europe/Amsterdam"
+    groups:
+      npm:
+        patterns:
+          - "*"

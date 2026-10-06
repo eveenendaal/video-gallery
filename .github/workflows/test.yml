@@ -106,7 +106,16 @@ jobs:
     steps:
       - name: Check job results
         run: |
-          if [[ "${{ needs.backend.result }}" == "failure" || "${{ needs.frontend.result }}" == "failure" ]]; then
-            echo "One or more required jobs failed"
+          # "Test" is the context branch protection requires. A failed or
+          # cancelled change detection skips backend/frontend, so it has to
+          # fail here rather than read as a pass.
+          if [[ "${{ needs.changes.result }}" != "success" ]]; then
+            echo "Change detection did not succeed"
             exit 1
           fi
+          for result in "${{ needs.backend.result }}" "${{ needs.frontend.result }}"; do
+            if [[ "$result" == "failure" || "$result" == "cancelled" ]]; then
+              echo "One or more required jobs failed"
+              exit 1
+            fi
+          done

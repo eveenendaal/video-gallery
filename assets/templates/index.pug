@@ -1,20 +1,49 @@
 doctype html
-html
+html(lang="en" "data-theme"="dark")
     head
+        meta(charset="utf-8")
         meta(name="viewport", content="width=device-width,initial-scale=1.0")
+        meta(name="color-scheme", content="dark")
         title Galleries
-        style 
+        style
             include ../../public/styles.css
-    body
-        div.header.hero.is-dark.is-small
-            div.hero-head
-                div.container.has-text-centered-mobile.block
-                    h1.title.is-2 Galleries
-        div.container
-            div.videos
-                each category, _ in Categories
-                    div.category
-                        h2.title.is3 #{category.Name}
+    body.vg
+        header.vg-topbar
+            div.vg-wrap
+                span.vg-brand
+                    svg.vg-icon(width="26" height="26" viewBox="0 0 24 24" "stroke-width"="1.8" "aria-hidden"="true")
+                        rect(x="3" y="4" width="18" height="16" rx="2")
+                        path(d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4")
+                    span Video Gallery
+        main.vg-wrap.vg-main
+            div.vg-intro
+                h1.vg-display Galleries
+                p.vg-lede Pick a gallery to start watching.
+            each category in Categories
+                section.vg-section
+                    div.vg-section-head
+                        h2.vg-section-title #{category.Name}
+                        span.vg-muted
+                            if len(category.Galleries) == 1
+                                | 1 gallery
+                            else
+                                | #{len(category.Galleries)} galleries
+                    div.vg-gallery-grid
                         each gallery in category.Galleries
-                           div.video
-                               a.button.is-link(href=gallery.Stub) #{gallery.Name}
+                            a.vg-gallery-card(href=gallery.Stub)
+                                div.vg-cover
+                                    svg.vg-icon(width="32" height="32" viewBox="0 0 24 24" "stroke-width"="1.5" "aria-hidden"="true")
+                                        rect(x="3" y="4" width="18" height="16" rx="2")
+                                        path(d="M10 9l5 3-5 3z")
+                                    each video, i in gallery.Videos
+                                        if i == 0 && video.Thumbnail
+                                            img(src=video.Thumbnail alt="" loading="lazy")
+                                div.vg-card-meta
+                                    span.vg-card-title #{gallery.Name}
+                                    span.vg-muted
+                                        if len(gallery.Videos) == 1
+                                            | 1 video
+                                        else
+                                            | #{len(gallery.Videos)} videos
+                                svg.vg-icon.vg-chevron(width="20" height="20" viewBox="0 0 24 24" "aria-hidden"="true")
+                                    path(d="M9 6l6 6-6 6")
